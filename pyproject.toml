@@ -1,0 +1,133 @@
+[tool.poetry]
+name = "ai-photo-system"
+version = "0.1.0"
+description = "M4 Mac mini photo automation system — local LLM, Immich, 8-layer pipeline"
+authors = ["jw.son <qoenam@gmail.com>"]
+readme = "photo_system_design_v3.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+# Pipeline core
+opencv-python-headless = "^4.10"
+numpy = "^2.0"
+pillow = "^11.0"
+# Database
+psycopg = {extras = ["binary", "pool"], version = "^3.2"}
+sqlalchemy = "^2.0"
+alembic = "^1.13"
+# Queue
+redis = "^5.0"
+# HTTP clients
+httpx = "^0.27"
+tenacity = "^8.5"
+# Metadata
+pyexiftool = "^0.5"
+osxphotos = "^0.69"
+# LLM
+ollama = "^0.4"
+# Observability
+structlog = "^24.4"
+prometheus-client = "^0.21"
+# Utils
+pydantic = "^2.9"
+python-dotenv = "^1.0"
+typer = "^0.13"
+rich = "^13.9"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-asyncio = "^0.24"
+pytest-cov = "^6.0"
+pytest-mock = "^3.14"
+testcontainers = {extras = ["postgres", "redis"], version = "^4.8"}
+hypothesis = "^6.115"
+ruff = "^0.7"
+mypy = "^1.13"
+responses = "^0.25"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+# ──────────────────────────────────────────────
+# Ruff (lint + format 통합)
+# ──────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["core"]
+extend-exclude = ["workflows", "prompts", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",  # line too long (formatter handles)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+known-first-party = ["core"]
+
+# ──────────────────────────────────────────────
+# pytest
+# ──────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["core/tests", "tests"]
+pythonpath = ["."]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--cov=core",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+markers = [
+    "unit: 단위 테스트 (mock 사용)",
+    "integration: 통합 테스트 (testcontainers)",
+    "e2e: E2E 시나리오 테스트",
+    "golden: Golden dataset 회귀 테스트",
+    "slow: 느린 테스트 (>1s)",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["core"]
+omit = ["*/tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+# ──────────────────────────────────────────────
+# mypy (선택, 점진 도입)
+# ──────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.12"
+strict = false  # 점진 도입
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Phase 4 이후 true로
+ignore_missing_imports = true

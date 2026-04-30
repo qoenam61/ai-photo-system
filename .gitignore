@@ -1,0 +1,84 @@
+# Secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.gpg
+*.key
+*.pem
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Poetry
+poetry.lock.local
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Photo system data (절대 git 추적 금지)
+PhotoVault/
+**/photo_data/
+**/*.heic
+**/*.HEIC
+**/*.jpg
+**/*.JPG
+**/*.jpeg
+**/*.JPEG
+**/*.png
+**/*.PNG
+**/*.mp4
+**/*.MP4
+**/*.mov
+**/*.MOV
+**/*.heif
+**/*.dng
+**/*.raw
+
+# Postgres dumps
+*.sql.gz
+*.dump
+
+# Ollama models (대용량)
+ollama_models/
+
+# Test 임시 파일
+tests/_tmp/
+tests/golden/_artifacts/
+
+# Claude Code 로컬 설정
+.claude/settings.local.json
