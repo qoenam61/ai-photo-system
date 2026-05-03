@@ -13,7 +13,12 @@
 - **저장**: 외장 HDD 1TB (Phase 6 이후) + iCloud 50GB (jw.son) + Galaxy Cloud 15GB (eunju)
 - **분류**: 8등급 (EVENT / EVENT-L / BEST / FOOD / MEMORY+ / MEMORY- / NORMAL / TRASH)
 - **LLM**: 로컬 Qwen2.5-VL 7B Q4_K_M (Ollama) — 유료 Vision API 미사용 ($0/월)
-- **핵심 원칙**: 사진은 절대 외부 API로 나가지 않음, 원본은 절대 버리지 않음
+- **핵심 원칙 (v3.13, 2026-05-03 사용자 명시 변경)**: 원본은 절대 버리지 않음.
+  - Vision 분류는 **`VISION_MODEL_CHAIN` env 기반 동적 라우팅**.
+  - 기본 체인: `groq,qwen` — Groq Llama-4 Scout 1차, 무료 한도 소진/실패 시 자동 Qwen fallback.
+  - 사용자가 언제든 `VISION_MODEL_CHAIN=qwen` 으로 로컬 전용 복귀 가능.
+  - Groq 텍스트 작업(앨범명·KPI·NL)은 그대로 유지.
+  - PII (이름·주소) 외부 전송은 여전히 금지.
 
 ## 진입 문서 (이 순서대로 읽기)
 
@@ -30,6 +35,7 @@
 - "분류 등급", "EVENT 자동판정", "♥", "favorite"
 - "등급 폴더 이동", "storage_service", "뷰 심볼릭", "TRASH cleanup"
 - "동기화 03:00", "Layer 5"
+- **"사용자별", "jw.son만", "eunju만", "분기"** → 단일 파이프라인 원칙 위반 검토
 - "트레이딩"이 등장하면 → 사진 시스템 변경 금지, 별도 검토
 
 ## 핵심 시간 정책 (절대 변경 금지 — 의사결정 #21)
@@ -89,25 +95,64 @@ runbooks/          # 장애 복구 가이드
 
 ## Phase 진행 상태
 
-- [x] 설계 문서 v3.6 FINAL
-- [x] 의사결정 14건 확정
-- [ ] **Phase 0** — 사전 자산 인벤토리 (다음 단계)
-- [ ] **Phase 0-LLM** — Ollama + Qwen2.5-VL 7B 벤치마크
-- [ ] Phase 1 — 인프라 (SSD vault + Docker + Redis Streams + Loki)
-- [ ] Phase 2 — Immich 4컨테이너
-- [ ] Phase 3 — 원본 수집 + 변환
-- [ ] Phase 4 — 분류 자동화 + 14일 dry-run
-- [ ] Phase 5 — 실삭제 단계적 활성화
+- [x] 설계 문서 v3.10 FINAL
+- [x] 의사결정 24건 확정
+- [x] **Phase 0** — 사전 자산 인벤토리 (3,728장 분류 완료)
+- [x] **Phase 0-LLM** — Qwen2.5-VL 7B + Groq Llama-4-scout 앙상블 검증
+- [x] Phase 1 — 인프라 (Postgres·Redis·Caddy·Cloudflare 터널)
+- [x] Phase 2 — Immich 4컨테이너 (External Library /Volumes/Immich-Storage)
+- [x] Phase 3 — 백업 마이그레이션 (3,728장 + 본식 영상 보존)
+- [x] **Phase 4** — 분류 자동화 (classify-service + n8n cron 5분, 2026-05-02 활성)
+- [ ] **Phase 4.5** — 14일 dry-run 누적 (현재 진행 중, 자동 보고)
+- [ ] Phase 5 — 실삭제 단계적 활성화 (도메인 안전, **DEEP-ARCHITECT 필수**)
 - [ ] Phase 6 — HDD 마이그레이션 (HDD 도착 후)
-- [ ] Phase 7 — 운영·모니터링·DR
+- [ ] Phase 7 — 운영·모니터링·DR (Telegram 알림 부분 가동 중)
+
+## 운영 컴포넌트 (현재 상태)
+
+- `photo-classify` 컨테이너 (8765 노출, trading_net) — 분류 HTTP 서비스
+- n8n `photo-auto-classify` 워크플로 — 5분 cron, /process_pending 호출
+- `maintenance.sh` (cron 30분, dev 모드) — albums/dedup/sync/health
+- `cron.dev` 적용 중. **운영 전환 시 `cron.prod` (03:00 daily) 로 교체**
+
+## v3.13 Cleanup 정책 (사용자 명시, 2026-05-03)
+
+### iPhone 보존 정책 (Layer 6)
+```sql
+KEEP = (grade IN ('BEST', 'EVENT', 'MEMORY+') OR contains_child = TRUE)
+   AND grade != 'TRASH'
+   AND grade_source != 'dedup_demoted'
+DELETE = 그 외 (EVENT-L/FOOD/MEMORY-/NORMAL with contains_child=FALSE, TRASH 전체, dedup_demoted 전체)
+```
+- `contains_child = TRUE` 자산은 등급 무관 iPhone 보존 (단 TRASH·dedup 제외)
+- TRASH는 contains_child 무관 항상 삭제 (사용자 명시)
+- dedup_demoted (중복 사본)는 iPhone·HDD 모두 삭제
+- iOS "최근 삭제됨" 30일 보관으로 안전망
+
+### HDD 영구 삭제 정책 (Layer 5)
+```
+영구 삭제: TRASH (30일 grace 후) + dedup_demoted (verify_backup_full PASS 후 즉시)
+보존:      나머지 모든 등급 (MEMORY-, NORMAL, FOOD, EVENT-L 포함)
+```
+- TRASH 외 모든 등급은 HDD 영구 보존 (사용자 명시 안전 정책)
+- 중복(dedup) 사본만 verify PASS 후 즉시 삭제 가능
+
+### Phase 5 단계적 활성화 절차 (2026-05-03 결정)
+1. 분류 100% 완료 (현재 진행 중)
+2. `verify_backup_full.py` PASS (>= 99%)
+3. cleanup_queue 등록 — TRASH·MEMORY-·dedup_demoted 우선
+4. iOS Shortcut 설치 (`runbooks/layer6_ios_shortcut.md`)
+5. 시범 100장 (TRASH+MEMORY-+dedup) → 24h grace → iOS 삭제 검증
+6. PASS 시 BEST·EVENT까지 정책 확대
 
 ## 절대 변경 금지 결정사항 (영구)
 
 | 결정 | 영구 사유 |
 |---|---|
 | HDD 암호화 미도입 | 가정용 보관 + I/O 성능, 향후 재논의 안 함 |
-| 유료 Vision API 미사용 | 사용자 정책 ($0/월), 정확도 부족 시 더 큰 로컬 모델로 대응 |
+| 유료 Vision API 미사용 | 무료 LLM만 사용 ($0/월). **v3.13 (2026-05-03)**: `VISION_MODEL_CHAIN` env 기반 동적 라우팅 (기본 groq→qwen fallback). v3.12 "외부 전송 절대 금지" 원복 — 사용자 명시 결정. |
 | 코딩 도구 = Claude Code | 로컬 코딩 LLM 도입 안 함 |
+| **단일 파이프라인 원칙** | 모든 사용자 동일 로직·n8n·Service. 사용자별 분기는 §3.7.2의 5가지 외 절대 금지. 새 분기 추가 시 DEEP-ARCHITECT 강제 승격. |
 
 ## SDLC 적용
 
