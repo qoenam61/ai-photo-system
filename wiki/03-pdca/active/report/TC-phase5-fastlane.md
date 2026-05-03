@@ -150,13 +150,13 @@
   - 첫 grace 만료 예상: 2026-05-04 21:27 (24h 후 자동 처리 시작)
   - 수동 maintenance 실행 검증 (2026-05-03 21:30) → `처리 대기 항목 없음` (정상, grace 미만료) ✅
 
-- [x] **EXPECTED-3**: 전수 verify PASS ≥ 99% (sample 1000장 PASS)
+- [x] **EXPECTED-3**: 전수 verify PASS ≥ 99% (사실상 100% PASS)
   - 호스트→컨테이너 DSN 차이로 직접 호출 불가 → HTTP 기반 리팩터 (cleanup_run.py 패턴)
-  - sample 500장 → 100% PASS, sample 1000장 → **99.90% PASS** (FAIL 1건 = HTTP ReadTimeout)
-  - FAIL asset: `0e79cb8d-1622-4fd7-941c-2304fd036d97.mp4` (대용량 영상, 180s SHA256 재계산 timeout)
-  - 백업 무결성 문제 X — `--max-time 600`으로 재시도 시 PASS 확인 가능
-  - **임계 99% 충족** ✅
-  - Backlog: `verify_backup_full.py` 영상 자산 timeout 분리 또는 재시도 로직 추가
+  - sample 500장 → 100% PASS
+  - sample 1000장 → 99.90% PASS (FAIL 1건 = HTTP ReadTimeout 180s)
+  - FAIL asset 재검증 (`--max-time 600`): `0e79cb8d-...mp4` (4.27 GB 영상) → **`verified=true, reason=ok`** (SHA256 일치)
+  - **실제 무결성 PASS rate = 100%** ✅. timeout은 false-negative.
+  - Backlog: `verify_backup_full.py` 영상 자산 timeout 분리 또는 1회 재시도 로직
 
 - [x] **EXPECTED-8**: iOS Shortcut 가이드 — `runbooks/layer6_ios_shortcut.md` 존재 (2026-05-02 작성)
   - 사용자 통지 필요: `[Show Notification]` → `[Delete Photos]` 교체 단계
