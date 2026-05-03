@@ -37,6 +37,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 from core.client.qwen_client import QwenClient
 from core.service.backup_verifier import verify_asset
 from core.service.classifier import Classifier, Decision
+from core.service.cleanup_service import enqueue_cleanup
 
 
 app = FastAPI(title="photo-classify-service", version="0.1.0")
@@ -618,3 +619,40 @@ def classify_and_persist(req: ClassifyRequest) -> ClassifyResponse:
             resp.contains_child,
         ))
     return resp
+
+
+# ─────────────────────────────────────────────
+# Layer 5 HDD 영구삭제 — cleanup_queue 등록 (도메인 안전)
+# ─────────────────────────────────────────────
+
+
+class EnqueueRequest(BaseModel):
+    asset_ids: list[str]
+    grace_hours: int = 24
+
+
+class EnqueueResponse(BaseModel):
+    enqueued: int
+    already_queued: int
+    skipped: list[dict]
+
+
+@app.post("/cleanup_enqueue", response_model=EnqueueResponse)
+def cleanup_enqueue(req: EnqueueRequest) -> EnqueueResponse:
+    """cleanup_queue 등록 — Layer 5 HDD 영구삭제 후보.
+
+    정책 (v3.13 + 단축 결정 2026-05-03):
+      - HDD 영구삭제 가능: grade='TRASH' 또는 grade_source='dedup_demoted'
+      - dedup_demoted: grace=0 (verify PASS 후 즉시)
+      - TRASH: 24h grace (단축, 원래 30일)
+      - feedback_protect 자산 자동 제외
+
+    실제 HDD 삭제는 호스트 워커 scripts/cleanup_run.py에서 수행
+    (photo-classify는 /storage:ro 마운트로 unlink 불가).
+    """
+    r = enqueue_cleanup(req.asset_ids, req.grace_hours)
+    return EnqueueResponse(
+        enqueued=r.enqueued,
+        already_queued=r.already_queued,
+        skipped=r.skipped,
+    )

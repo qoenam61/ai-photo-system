@@ -1,74 +1,132 @@
-"""백업 폴더 전수 SHA256 검증 — Phase 5 안전 게이트.
+"""백업 폴더 전수 SHA256 검증 — Phase 5 안전 게이트 (호스트 실행).
 
-설계 §5: photo.classification 全 자산을 verify_asset()로 검증.
+설계 §5: photo.classification 全 자산을 classify-service /verify_backup으로 검증.
 PASS만 백업 폴더 원본 삭제 후보.
 
+호스트 실행 — backup_verifier.py가 컨테이너 내부 DSN(trading_postgres)을 쓰므로
+직접 호출 불가. classify-service HTTP를 경유해 검증.
+
+이미 cleanup 처리된 자산(processed_at IS NOT NULL)은 검증 대상에서 제외.
+
 Usage:
-  PYTHONPATH=. poetry run python scripts/verify_backup_full.py [--limit N]
+  PYTHONPATH=. poetry run python scripts/verify_backup_full.py [--limit N] [--source TYPE]
+
+  --source: all | iphone | legacy | external (기본 all)
 """
 
 from __future__ import annotations
 
 import argparse
 import os
-from pathlib import Path
+import time
+from collections import Counter
 
+import httpx
 import psycopg
 from dotenv import load_dotenv
-
-from core.service.backup_verifier import verify_asset
 
 load_dotenv()
 
 DB_DSN = os.getenv(
-    "PHOTO_DB_DSN",
+    "PHOTO_DB_DSN_HOST",
     "host=localhost port=5432 dbname=trading_db "
     "user=trading_user password=RyIokQY7bV3y7SEsyFLu2Oa6",
 )
+CLASSIFY_URL = os.getenv("CLASSIFY_URL", "http://127.0.0.1:8765")
+
+
+def fetch_targets(source: str, limit: int) -> list[tuple[str, str]]:
+    pattern = {
+        "all":      ("/Users/jw-home/%", "/mnt/external/%", "/usr/src/app/upload/%"),
+        "legacy":   ("/Users/jw-home/%",),
+        "external": ("/mnt/external/%",),
+        "iphone":   ("/usr/src/app/upload/%",),
+    }[source]
+
+    where = " OR ".join([f"source_path LIKE %s"] * len(pattern))
+    sql = f"""
+        SELECT c.asset_id::text, c.source_path
+        FROM photo.classification c
+        LEFT JOIN photo.cleanup_queue q ON q.asset_id = c.asset_id
+        WHERE ({where})
+          AND (q.processed_at IS NULL OR q.id IS NULL)
+        ORDER BY c.asset_id
+    """
+    params = list(pattern)
+    if limit > 0:
+        sql += " LIMIT %s"
+        params.append(limit)
+
+    with psycopg.connect(DB_DSN) as conn, conn.cursor() as cur:
+        cur.execute(sql, params)
+        return cur.fetchall()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=0, help="0=무제한")
+    parser.add_argument(
+        "--source", default="all",
+        choices=["all", "legacy", "external", "iphone"],
+    )
     args = parser.parse_args()
 
-    with psycopg.connect(DB_DSN) as conn, conn.cursor() as cur:
-        cur.execute("""
-            SELECT asset_id::text, source_path FROM photo.classification
-            WHERE source_path LIKE '/Users/jw-home/백업/%' OR source_path LIKE '/mnt/external/%'
-            ORDER BY asset_id
-        """ + (f" LIMIT {args.limit}" if args.limit > 0 else ""))
-        rows = cur.fetchall()
-
-    print(f"🔍 검증 대상: {len(rows)}장")
+    rows = fetch_targets(args.source, args.limit)
+    total = len(rows)
+    print(f"🔍 검증 대상: {total}장 (source={args.source})")
+    if total == 0:
+        return
 
     pass_count = 0
     fail_count = 0
-    fail_reasons: dict[str, int] = {}
+    fail_reasons: Counter[str] = Counter()
     fail_assets: list[tuple[str, str, str]] = []
+    start = time.time()
 
-    for i, (asset_id, source_path) in enumerate(rows, 1):
-        if i % 200 == 0:
-            print(f"  진행 {i}/{len(rows)} (PASS {pass_count}, FAIL {fail_count})")
-        v = verify_asset(asset_id)
-        if v.verified:
-            pass_count += 1
-        else:
-            fail_count += 1
-            fail_reasons[v.reason] = fail_reasons.get(v.reason, 0) + 1
-            if len(fail_assets) < 20:
-                fail_assets.append((asset_id, v.reason, source_path))
+    client = httpx.Client(timeout=180)
+    try:
+        for i, (asset_id, source_path) in enumerate(rows, 1):
+            if i % 200 == 0:
+                elapsed = time.time() - start
+                rate = i / elapsed if elapsed else 0
+                eta = (total - i) / rate if rate else 0
+                print(f"  진행 {i}/{total} (PASS {pass_count}, FAIL {fail_count}) "
+                      f"{rate:.1f}/s ETA {eta/60:.1f}min")
+            try:
+                r = client.post(
+                    f"{CLASSIFY_URL}/verify_backup",
+                    json={"asset_id": asset_id},
+                )
+                v = r.json()
+            except Exception as e:
+                fail_count += 1
+                fail_reasons[f"http_error:{type(e).__name__}"] += 1
+                if len(fail_assets) < 20:
+                    fail_assets.append((asset_id, f"http_error:{e}", source_path))
+                continue
 
-    print(f"\n📊 결과: PASS {pass_count}/{len(rows)} ({100*pass_count/max(len(rows),1):.1f}%)")
+            if v.get("verified"):
+                pass_count += 1
+            else:
+                fail_count += 1
+                reason = v.get("reason", "unknown").split(":")[0]
+                fail_reasons[reason] += 1
+                if len(fail_assets) < 20:
+                    fail_assets.append((asset_id, v.get("reason", ""), source_path))
+    finally:
+        client.close()
+
+    pct = 100 * pass_count / max(total, 1)
+    print(f"\n📊 결과: PASS {pass_count}/{total} ({pct:.2f}%) FAIL {fail_count}")
     if fail_count:
-        print(f"\n❌ FAIL {fail_count}장 — 사유 분포:")
-        for r, c in sorted(fail_reasons.items(), key=lambda x: -x[1]):
+        print(f"\n❌ FAIL 사유 분포:")
+        for r, c in fail_reasons.most_common():
             print(f"  {r}: {c}")
         print("\n샘플 (최대 20):")
         for aid, reason, sp in fail_assets:
-            print(f"  {aid[:8]} {reason:30s} {sp}")
+            print(f"  {aid[:8]} {reason[:40]:40s} {sp}")
     else:
-        print("\n✅ 전수 검증 PASS — 백업 폴더 원본 삭제 안전")
+        print("\n✅ 전수 검증 PASS — 안전")
 
 
 if __name__ == "__main__":

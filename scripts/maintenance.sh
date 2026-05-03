@@ -55,5 +55,11 @@ echo
 echo "[4/4] Immich Album 동기화"
 PYTHONPATH=. $POETRY run python scripts/sync_immich_albums.py 2>&1 | tail -20
 
+# 5. Layer 5 HDD cleanup — grace 만료 자산 영구삭제 (도메인 안전)
+# 정책: cleanup_queue grace_until <= NOW + verify PASS + 미보호. limit 100 / 1회.
+echo
+echo "[5/5] Layer 5 HDD cleanup"
+PYTHONPATH=. $POETRY run python scripts/cleanup_run.py --limit 100 --no-dry-run 2>&1 | tail -10
+
 echo
 echo "=== Maintenance done $(date) ==="
