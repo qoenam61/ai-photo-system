@@ -1,0 +1,26 @@
+# Phase 5 Dry-run 보고서 — 2026-05-02T00:32:44.626821+00:00
+# 기준: 14일 이상 경과 + grade in ['TRASH', 'MEMORY-']
+# ⚠️ 실삭제 없음 (보고서 only)
+
+## 1. 등급별 후보 자산
+  [MEMORY- ] 총     2장 / 5MB | 삭제 가능     0장 / 대기     2장
+  [TRASH   ] 총   324장 / 848MB | 삭제 가능     0장 / 대기   324장
+
+💾 회수 가능 디스크: 854MB (0장 / 14일 경과)
+
+## 2. 등급 결정 출처 (LLM vs 자동)
+
+## 3. 영상/사진 분포
+
+## 4. 사용자 보호 자산 (feedback table)
+  feedback table 미구성 (Phase 5 진입 전 보호 메커니즘 필요)
+
+## 5. 실삭제 진입 전 체크리스트
+  ❌ dry-run 14일 이상 누적
+  ✅ classification.sha256 NOT NULL 일관성
+  ⚠️ Immich library에서 실제 파일 존재 확인 필요
+  ❌ 사용자 보호 메커니즘 (feedback table)
+  ⚠️ 백업 무결성 — Immich-Storage 별도 백업
+  ❌ 실삭제 SAFE-REVIEW 검증 (정식 TC 파일)
+
+⚠️ 위 체크리스트 미충족 항목 해결 전 실삭제 절대 금지 (도메인 안전 영역).

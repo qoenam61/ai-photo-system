@@ -26,6 +26,9 @@ pyexiftool = "^0.5"
 osxphotos = "^0.69"
 # LLM
 ollama = "^0.4"
+# API server
+fastapi = "^0.115"
+uvicorn = {extras = ["standard"], version = "^0.46.0"}
 # Observability
 structlog = "^24.4"
 prometheus-client = "^0.21"

@@ -1,0 +1,16 @@
+{
+  auto_https off
+}
+
+# 통합 프록시 (HTTP only — cloudflared가 TLS 종료)
+# - /cleanup-api/* → photo-classify:8000 (path 제거)
+# - 그 외 → immich-server:2283
+:2283 {
+  handle_path /cleanup-api/* {
+    reverse_proxy http://photo-classify:8000
+  }
+
+  handle {
+    reverse_proxy http://immich-server:2283
+  }
+}

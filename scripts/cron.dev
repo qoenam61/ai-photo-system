@@ -1,0 +1,9 @@
+# 개발용 cron — 30분마다 유지보수 실행 (시간 제약 없음)
+# 적용: crontab /Users/jw-home/Work/photo_system/ai-photo-system/scripts/cron.dev
+*/30 * * * * /Users/jw-home/Work/photo_system/ai-photo-system/scripts/maintenance.sh > /dev/null 2>&1
+
+# 메모리 최적화: photo-classify 04:00 일일 재시작 (분류 idle 윈도)
+0 4 * * * /usr/local/bin/docker restart photo-classify >> /Users/jw-home/Work/photo_system/ai-photo-system/scripts/_inventory/classify_restart.log 2>&1
+
+# 주간 KPI 요약 — 매주 일요일 09:00 (Groq + Telegram)
+0 9 * * 0 cd /Users/jw-home/Work/photo_system/ai-photo-system && PYTHONPATH=. /Users/jw-home/.local/bin/poetry run python scripts/weekly_kpi.py >> scripts/_inventory/weekly_kpi.log 2>&1

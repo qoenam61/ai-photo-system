@@ -246,6 +246,13 @@ def process_pending(limit: int = 20) -> ProcessPendingResponse:
     finally:
         immich.close()
 
+    import gc
+    collected = gc.collect()
+    logger.info(
+        "process_pending done success=%d failed=%d gc_freed=%d",
+        success, failed, collected,
+    )
+
     return ProcessPendingResponse(
         pending=len(pending), processed=success + failed,
         success=success, failed=failed, by_grade=by_grade,

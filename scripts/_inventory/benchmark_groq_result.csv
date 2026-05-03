@@ -1,0 +1,324 @@
+path,user_label,ai_grade,correct,confidence,reason,elapsed_ms,error
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_0087.JPG,EVENT,MEMORY+,False,8,"사람 2명, 화질 양호, 일상으로 추정",509,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_0088.JPG,EVENT,EVENT,True,9,가족사진,494,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_0089.JPG,EVENT,BEST,False,9,웨딩 사진,485,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_0640.jpeg,EVENT,EVENT,True,9,웨딩드레스,528,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_0680.jpeg,EVENT,EVENT,True,8,드레스,485,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_0704.jpeg,EVENT,EVENT,True,9,한복,572,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_1138.JPG,EVENT,EVENT,True,8,생일 또는 이벤트에서 케이크를 장식하는 사진,492,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_1834.JPG,EVENT,EVENT,True,8,3+人物,964,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_2476.JPG,EVENT,MEMORY+,False,8,"사람 2명, 화질 양호, 일상으로 추정",909,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_2477.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_3091.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_5925.JPG,EVENT,MEMORY+,False,8,"사진에 사람 2명과 애완동물이 함께 등장하며, 화질이 선명하고 구도가 적절하여 MEMORY+로 분류됩니다.",1177,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_5927.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_5930.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_6353.jpeg,EVENT,NORMAL,False,8,"사람 화면 30% 미만, 풍경/사물/반려동물 主",1185,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_6504.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_6544.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_6545.JPG,EVENT,EVENT,True,9,웨딩 사진,886,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_6699.jpeg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_6702.jpeg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_6717.jpeg,EVENT,MEMORY+,False,8,"사람 1~2명, 화질 양호, 일상",604,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_6720.jpeg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_6947.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_6962.JPG,EVENT,EVENT,True,9,웨딩 사진,631,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7108.jpeg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7132.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7135.JPG,EVENT,EVENT,True,9,한복을 입고 있는 커플,548,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7137.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7245.jpeg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7324.JPG,EVENT,MEMORY+,False,8,아기와 강아지가 함께 누워있는 일상 사진,499,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7378.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7379.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7427.jpeg,EVENT,MEMORY+,False,8,아이가 물에 떠 있는 모습이 일상적이고 화질이 좋아 MEMORY+로 분류됩니다.,643,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7449.jpeg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7453.jpeg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7468.jpeg,EVENT,MEMORY+,False,8,"한두 명, 일상, 화질 양호",521,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7495.jpeg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7496.jpeg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7498.jpeg,EVENT,EVENT,True,9,웨딩 드레스와 신사복을 입은 부부가 함께 서 있음,516,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7504.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7524.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7536.JPG,EVENT,NORMAL,False,8,풍경/사물/반려동물 주(주인공) 화면 30% 미만,559,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7552.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7590.JPG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7764.jpeg,EVENT,EVENT,True,9,"돌잔치, 생일, 가족스튜디오와 관련된 기념일 사진",1002,
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7766.jpeg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/IMG_7776.jpeg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/_talkf_wzAd88JPOT_JYmrSKiHgMBg4PfKL8TlU0_f_8f0ac19bbf6a.jpg,EVENT,EVENT,True,9,가족사진 스튜디오 느낌,626,
+/Users/Shared/PhotoVault/_benchmark/EVENT/beauty_1649654117040.JPEG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/beauty_1649654136130.JPEG,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/beauty_1663595334871.JPEG,EVENT,MEMORY+,False,8,아이가 한명이며 화질이 양호하고 일상의 모습이므로,525,
+/Users/Shared/PhotoVault/_benchmark/EVENT/https___kids-i.kakaocdn.net_dn_Rw4id_btsSn8dNygZ_qzJ64h2sdKL7VKz7aZFfj1_img.jpg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/https___kids-i.kakaocdn.net_dn_c2Mp3U_btsSrjsdQq0_fOKsPTZxz4k2lBRky1hjqk_img.jpg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/https___kids-i.kakaocdn.net_dn_dDsMO4_btsRXaI3VQg_5gakgSxrJ42d2wH3Vbtha0_img.jpg,EVENT,MEMORY+,False,8,"한두 명, 일상, 화질 양호",482,
+/Users/Shared/PhotoVault/_benchmark/EVENT/https___kids-i.kakaocdn.net_dn_f4X2J_btsRO68ILUb_tGDUvpxaM4Rlgqyroo29Kk_img.jpg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/https___kids-i.kakaocdn.net_dn_vPSlc_btsQshjfoiy_gJf1diZYBfZ9zhofSMnsa1_img.jpg,EVENT,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/EVENT/https___kids-i.kakaocdn.net_dn_vhbGb_btsRUCU8TzV_aZgvC5OlRt99AZZXif0Gi1_img.jpg,EVENT,FOOD,False,8,음식이 화면 50% 이상 차지,573,
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_0062.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_0068.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_0860.jpeg,BEST,MEMORY+,False,9,"일상 속에서 찍은 사람 1~2명의 사진이며, 화질이 양호합니다.",809,
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_1179.JPG,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_3504.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_5413.jpeg,BEST,MEMORY+,False,8,풍경이 주이고 사람 2명이 일상복 차림으로 찍은 사진,792,
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_5422.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_5435.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_5447.JPG,BEST,MEMORY+,False,8,"풍경이 포함된 사진이지만, 두 사람이 주체이며 화질이 양호하고 일상의 순간을 포착한 사진",633,
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_5569.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_5572.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_5608.jpeg,BEST,MEMORY+,False,8,풍경과 함께 1-2명 등장,865,
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_5612.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_5613.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_5866.JPG,BEST,MEMORY+,False,8,"사람 1명, 일상 사진",436,
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_5998.JPG,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_6024.JPG,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_6025.JPG,BEST,MEMORY+,False,9,"사람 2명, 화질 양호, 일상",585,
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_6061.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_6264.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_6316.jpeg,BEST,MEMORY+,False,8,임신한 여성이 풍경과 함께 잘 찍힌 사진,730,
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_6764.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_6765.jpeg,BEST,MEMORY+,False,8,"사람 2명, 화질 양호, 일상으로 추정",1308,
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_6959.jpeg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_7018.jpeg,BEST,MEMORY+,False,8,"사람 2명, 화질 양호, 일상으로 추정",899,
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_7112.JPG,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_7374.JPG,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_7506.JPG,BEST,MEMORY+,False,8,아이 사진,498,
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_7507.JPG,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_8456.JPG,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/IMG_8462.JPG,BEST,MEMORY+,False,8,1-2뛈 일상삶의 혹이나 요류하면,2111,
+/Users/Shared/PhotoVault/_benchmark/BEST/beauty_1656122527884.JPEG,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/beauty_1656137875948.JPEG,BEST,MEMORY+,False,9,"사람 2명, 화질 양호, 일상 사진",1866,
+/Users/Shared/PhotoVault/_benchmark/BEST/https___kids-i.kakaocdn.net_dn_PpwuO_btsSc0TAoeS_qlrKoraXBXbZAXiJX1oRQk_img.jpg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/https___kids-i.kakaocdn.net_dn_bvlKTU_btsRj5oEHnE_Y0JmbadG0QNtFk7JBL1aOK_img.jpg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/BEST/https___kids-i.kakaocdn.net_dn_dmb74u_btsRKubEO88_4KtFO9x4MK8zubC3Ip7KJ0_img.jpg,BEST,MEMORY+,False,8,"사람 1명, 일상, 화질 양호",813,
+/Users/Shared/PhotoVault/_benchmark/BEST/https___kids-i.kakaocdn.net_dn_hud6b_btsRIKycA7o_RPCLQyLzjZMvKaiuH7cVm1_img.jpg,BEST,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_2667.jpeg,FOOD,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_4146.jpeg,FOOD,FOOD,True,9,음식이 화면 50% 이상 차지,614,
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_4148.jpeg,FOOD,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_4149.jpeg,FOOD,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_4150.jpeg,FOOD,FOOD,True,9,음식이 화면 50% 이상 차지,2270,
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_5470.jpeg,FOOD,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_5543.jpeg,FOOD,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_5544.jpeg,FOOD,FOOD,True,9,음식이 화면 50% 이상 차지,559,
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_5618.jpeg,FOOD,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_5619.jpeg,FOOD,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_5621.jpeg,FOOD,FOOD,True,9,음식이 화면 50% 이상 차지,612,
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_5622.jpeg,FOOD,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_5624.jpeg,FOOD,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_5981.jpeg,FOOD,FOOD,True,9,사진 속 음식이 화면의 50% 이상을 차지하고 있어 FOOD로 분류,872,
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_7328.jpeg,FOOD,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_7329.jpeg,FOOD,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/FOOD/IMG_8450.jpeg,FOOD,FOOD,True,9,음식이 화면 50% 이상 차지,523,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_0106.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_0111.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_0715.JPG,MEMORY+,MEMORY-,False,8,"한두 명, 구도 조금 어색",616,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_1404.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_1405.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_2327.jpeg,MEMORY+,MEMORY+,True,8,"한두 명, 일상, 화질 양호",590,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_2358.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_2368.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_2371.jpeg,MEMORY+,MEMORY+,True,8,"사람 2명, 화질 양호, 일상으로 추정",581,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_2385.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_2861.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_2869.jpeg,MEMORY+,MEMORY+,True,9,"사람 2명, 화질 양호, 일상으로 추정",1109,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_4074.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_4530.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_5445.JPG,MEMORY+,MEMORY+,True,9,"사람 2명, 풍경 배경, 화질 양호",914,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_5533.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_5567.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_5589.jpeg,MEMORY+,MEMORY+,True,8,사람 2명과 아이 1명이 함께 찍은 일상 사진,891,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_5877.JPG,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_6026.JPG,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_7021.jpeg,MEMORY+,MEMORY+,True,8,"사람 2명, 화질 양호, 일상으로 추정",792,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_7111.JPG,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_7323.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_7519.JPG,MEMORY+,MEMORY+,True,8,"사람 2명, 화질 양호, 일상으로 추정",781,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_7616.jpeg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/IMG_8454.JPG,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/beauty_1651385291649.JPEG,MEMORY+,MEMORY+,True,8,"사람 2명, 화질 양호, 일상",680,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/https___kids-i.kakaocdn.net_dn_3Kjqu_btsSDUAgeC2_NkibCTV2yqMsHe8wJt9uDK_img.jpg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/https___kids-i.kakaocdn.net_dn_5cJXD_btsR40tI9tv_o15RcuKvAkJChRf0g81glk_img.jpg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/https___kids-i.kakaocdn.net_dn_BpCiZ_btsSiEDq2kD_X1iMZ7leMUKErDTfTq6eRk_img.jpg,MEMORY+,MEMORY+,True,8,"사람 2명, 화질 양호, 일상으로 추정",582,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/https___kids-i.kakaocdn.net_dn_P0ata_btsS1a95k66_KLQ0F76NwOzQtoD86K05QK_img.jpg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/https___kids-i.kakaocdn.net_dn_PCASu_btsQvz4qQoc_UfrnKzgMaKIys3Cj6ucsh1_img.jpg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/https___kids-i.kakaocdn.net_dn_cXtjdC_btsRicvQ8Ub_VeiRX0aPHgqgRkxQvwzwD1_img.jpg,MEMORY+,MEMORY+,True,8,"사람 1명, 일상, 화질 양호",1386,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/https___kids-i.kakaocdn.net_dn_cfFQSD_btsRhc3kbQP_IqxkzZPHi6KK25C2PRpKCk_img.jpg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/https___kids-i.kakaocdn.net_dn_vPgFA_btsSmaJyNBt_j7EeQOYBTewPokHh7LWcnK_img.jpg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/https___up-kids-kage.kakao.com_dn_dP7sYc_dJMcaib2ZC5_Ks34P2sk3caNC0xFGl8aK1_img.jpg,MEMORY+,MEMORY+,True,8,"사람 1명, 화질 양호, 일상의 행복한 순간",606,
+/Users/Shared/PhotoVault/_benchmark/MEMORY+/https___up-kids-kage.kakao.com_dn_zC7O2_dJMcadBK5tN_eZQ5nX3IPmB838rUxnRbr0_img.jpg,MEMORY+,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_0122.JPG,MEMORY-,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_0707.jpeg,MEMORY-,MEMORY+,False,8,"두 명, 양호한 화질, 일상으로 추정",561,
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_0716.JPG,MEMORY-,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_2386.jpeg,MEMORY-,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_2661.jpeg,MEMORY-,MEMORY+,False,8,"사람 2명, 화질 양호, 일상으로 추정",1030,
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_4473.jpeg,MEMORY-,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_4476.jpeg,MEMORY-,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_4529.jpeg,MEMORY-,MEMORY+,False,8,"사람 2명, 일상, 화질 양호",711,
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_5417.jpeg,MEMORY-,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_5585.jpeg,MEMORY-,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_5591.jpeg,MEMORY-,MEMORY+,False,8,"가족사진이며, 화질이 양호하고 일상의 순간을 포착한 것 같음",593,
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_7030.jpeg,MEMORY-,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/IMG_7482.jpeg,MEMORY-,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/https___kids-i.kakaocdn.net_dn_cWn3PT_btsSsUuazRP_M7KhdhjK9HOQzxDVm5RDL0_img.jpg,MEMORY-,EVENT,False,8,아이 3명 이상,556,
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/https___kids-i.kakaocdn.net_dn_ca5UCl_btsSvoNXQlj_kh9JqfrAeflsJIzbMaIbE0_img.jpg,MEMORY-,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/MEMORY-/https___kids-i.kakaocdn.net_dn_kQxBK_btsSCmoIBuY_mkDmh8d5hgGRpsoakmuajk_img.jpg,MEMORY-,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/NORMAL/IMG_4072.jpeg,NORMAL,MEMORY-,False,8,"흐리고 어두운 환경에서 찍은 사진이며, 인물은 1명으로 판단됩니다.",836,
+/Users/Shared/PhotoVault/_benchmark/NORMAL/IMG_5450.jpeg,NORMAL,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/NORMAL/IMG_5536.jpeg,NORMAL,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___kids-i.kakaocdn.net_dn_LDQ00_btsRYFCJP1L_8gNsanPdw5FK4LDBiE0V00_img.jpg,NORMAL,MEMORY+,False,8,"아이 1명, 사진 화질이 양호하고 일상의 모습",621,
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___kids-i.kakaocdn.net_dn_bCazmi_btsR6Za579A_0FlweVxeoJYYJlNK0TcY30_img.jpg,NORMAL,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___kids-i.kakaocdn.net_dn_bUqb5z_btsQW2d2IFs_gkGjCgyZthcS0ohf3sf7Ck_img.jpg,NORMAL,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___kids-i.kakaocdn.net_dn_bbOCld_btsRofxP982_QvbwSHRdHu3QVWEzr8tIN0_img.jpg,NORMAL,MEMORY+,False,8,"한두 명, 일상, 화질 양호",693,
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___kids-i.kakaocdn.net_dn_d5uC9M_btsR81LZCVu_kvM69znmPKXh6rvIU9FY2k_img.jpg,NORMAL,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___kids-i.kakaocdn.net_dn_dkwK6x_btsR0VlS6IJ_1CHaDybN3AUsL6m3x9Ghk0_img.jpg,NORMAL,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___kids-i.kakaocdn.net_dn_ehl65X_btsRIRqmIvQ_yqv0iKOB6dlBKE6Y5PHpY0_img.jpg,NORMAL,MEMORY+,False,8,"한 명, 일상, 화질 양호",1054,
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___kids-i.kakaocdn.net_dn_izNtH_btsRo8TBnam_3NwTrHh7lZ7kM2a91BLGn1_img.jpg,NORMAL,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___kids-i.kakaocdn.net_dn_mLM47_btsSGKcaBO7_Vc85Hr8FrX97X75h92pN5k_img.jpg,NORMAL,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___kids-i.kakaocdn.net_dn_vMXsY_btsRJRwE4nZ_7FvPCVOqhRiwn6jjKc5Jf0_img.jpg,NORMAL,MEMORY+,False,8,"화질이 양호하고, 일상 속에서 찍은 사진이며, 한두 명의 사람이 등장",1968,
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___up-kids-kage.kakao.com_dn_7xxKE_dJMcac3JDGM_HnmHwUWI5BWjfECfm0Kwkk_img.jpg,NORMAL,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___up-kids-kage.kakao.com_dn_BpH0l_dJMcacCRJaV_S5LJ1EtaEQKAXwiwgBrNy1_img.jpg,NORMAL,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/NORMAL/https___up-kids-kage.kakao.com_dn_etX7Wc_dJMcadV5DcA_vIPpeLQEOUlifddAaQSC51_img.jpg,NORMAL,MEMORY+,False,8,아이 3명이 함께 노는 일상 모습,841,
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_0124.JPG,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_0130.PNG,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_0166.HEIC,TRASH,NORMAL,False,8,사진 속 책 표지,961,
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_0178.HEIC,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_0217.jpeg,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_0218.jpeg,TRASH,MEMORY-,False,8,한두명 인물 사진이지만 화질이나 구도가 다소 어색,506,
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_0228.JPG,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_5464.jpeg,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_5529.jpeg,TRASH,NORMAL,False,8,"사람이 없고, 풍경/사물 主",547,
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_5958.jpeg,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_6773.jpeg,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_7041.jpeg,TRASH,MEMORY-,False,8,"사진에 사람 한 명과 신분증이 포함되어 있으며, 사진의 품질이 약간 떨어짐",684,
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_7119.jpeg,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_7322.jpeg,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_7483.jpeg,TRASH,MEMORY-,False,8,흐리고 어색한 구도,512,
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_7575.jpeg,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/IMG_7581.jpeg,TRASH,,False,0,,0,"Client error '429 Too Many Requests' for url 'https://api.groq.com/openai/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+/Users/Shared/PhotoVault/_benchmark/TRASH/https___up-kids-kage.kakao.com_dn_R2Kw0_btsSZYoU9Xc_UDpQQAm4erxm6h4jmmco2K_img.jpg,TRASH,TRASH,True,8,UI 스크린살트,599,

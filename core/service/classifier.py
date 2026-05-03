@@ -88,12 +88,16 @@ def encode_image(path: Path, max_dim: int = 512) -> str:
     """이미지 → base64 JPEG (LLM 입력용). HEIC는 pillow-heif 자동 처리.
 
     v3.13: max_dim 512 (이전 1024) — Groq TPM 한도 4배 절감, 분류 품질 영향 미미.
+    명시적 close + buf.close()로 메모리 누수 방지.
     """
-    img = Image.open(path).convert("RGB")
-    img.thumbnail((max_dim, max_dim))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=80)
-    return base64.b64encode(buf.getvalue()).decode()
+    with Image.open(path) as raw:
+        img = raw.convert("RGB")
+        img.thumbnail((max_dim, max_dim))
+        with io.BytesIO() as buf:
+            img.save(buf, format="JPEG", quality=80)
+            data = buf.getvalue()
+        img.close()
+    return base64.b64encode(data).decode()
 
 
 def opencv_signals(path: Path) -> Signals:
@@ -101,9 +105,12 @@ def opencv_signals(path: Path) -> Signals:
     try:
         suffix = path.suffix.lower()
         if suffix in (".heic", ".heif"):
-            pil_img = Image.open(path).convert("RGB")
-            arr = np.array(pil_img)
+            with Image.open(path) as raw:
+                pil_img = raw.convert("RGB")
+                arr = np.array(pil_img)
+                pil_img.close()
             img = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+            del arr
         else:
             img = cv2.imread(str(path))
         if img is None:

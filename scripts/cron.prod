@@ -1,0 +1,3 @@
+# 운영용 cron — 매일 03:00 유지보수 실행
+# 적용: crontab /Users/jw-home/Work/photo_system/ai-photo-system/scripts/cron.prod
+0 3 * * * /Users/jw-home/Work/photo_system/ai-photo-system/scripts/maintenance.sh > /dev/null 2>&1

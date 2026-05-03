@@ -8,6 +8,11 @@
 > v3.4 → v3.5: **아키텍처 8건 의사결정 확정** + **시스템 성숙도 9.0/10 도달 로드맵** (`architecture_review.md` v1.1)
 > v3.5 → v3.6: **코드 구조 6건 의사결정 확정** (§9.4 Clean Architecture 채택, poetry, ruff, prompts/*.md, n8n 얇게, GitHub Actions) — 14건 전체 확정
 > v3.6 → v3.7: **HDD 옵션 D 하이브리드 폴더 구조** (등급별 1차 + 행사/♥ 뷰 심볼릭) + **모든 동기화 03:00 일괄** + Layer 5에 storage_service 단계 추가
+> v3.7 → v3.8: ⭐ **단일 파이프라인 원칙 명문화** (jw.son·eunju 동일 로직 + 사용자별 분기 최소화) + 벤치마크 폴더 단일 구조 (등급 7개)
+> v3.8 → v3.9: ⭐ **MEMORY+ 폰 보관 + 동적 quota 운영** (50GB/15GB 한도 내 품질 상위 자동 채움) + ♥ 양방향 동기화 (cleanup ↔ restore) + 의사결정 #25~34 확정
+> v3.9 → v3.10: ⭐ **외부 무료 LLM 활용 정책 변경** (Groq + 로컬 Qwen 앙상블, 사진 외부 전송 허용) + **분류 책임 분리** (LLM 4등급 + 자동 4등급) + 의사결정 #36~40
+> v3.10 → v3.11: **백업 검증 필수 게이트** (Phase 5 + Layer 6 SHA256 3중 검증) + 개발/운영 모드 명문화
+> v3.11 → v3.12 ⭐ **사진 외부 전송 원복** (사용자 명시 2026-05-02): Groq Vision 비활성, **로컬 Qwen 단독 사진 분류**. Groq는 텍스트 작업 (앨범명·KPI·NL 질의)만 사용. Telegram 알림 가동.
 
 ---
 
@@ -124,8 +129,9 @@
 - **원본은 절대 버리지 않는다** — 단, "원본"의 정의는 변환본(JPEG/H.264). HEIC/HEVC 입력은 변환 후 7일 보관 후 자동 폐기.
 - TRASH는 30일간 HDD 보관 후 삭제 (사용자 ♥ 시 복구 가능)
 - iPhone에서 삭제해도 Immich 앱에서 원본 스트리밍으로 열람 가능
-- **사진은 절대 외부 API로 나가지 않는다** — 모든 LLM 추론은 로컬 (Qwen2.5-VL 7B), Vision API 미사용 ($0/월)
+- **무료 LLM 최대 활용 (v3.10 갱신)** — 로컬 Qwen2.5-VL + Groq Llama-4-scout 앙상블. 유료 API는 미사용 ($0/월). 사진 외부 전송 허용 (무료 한도 내).
 - 자동 삭제는 3단계 grace로 점진 활성화 (신뢰 검증 후)
+- **단일 파이프라인 원칙** ⭐ (v3.8) — 모든 사용자(jw.son·eunju)는 동일한 분류 로직·n8n 워크플로우·Service·Repository를 공유한다. 사용자별 분기는 §3.7에 명시된 5가지 필수 항목 외 일절 금지.
 
 ---
 
@@ -205,6 +211,52 @@ Galaxy Cloud는 "DCIM/Camera" 폴더만 자동 동기화하므로, Immich가 분
 - 앨범명: 날짜 + 장소 자동 생성 (예: `2026-04-29 강남구 행사`)
 - 두 Immich 계정 모두에서 접근 가능
 - **Race condition 방지**: 두 사용자 분류가 완료된 후 새벽 03:30에 공유 EVENT 매칭 워크플로우 1회만 실행
+
+---
+
+## 3.4 분류 책임 분리 — LLM 4등급 + 자동 4등급 (v3.10 신규)
+
+> v3.9까지 LLM이 8등급 모두 분류 → 정확도 41% (FAIL). v3.10에서 책임 분리.
+
+### 3.4.1 LLM 분류 (의미 기반, 4등급)
+
+| 등급 | 신호 | 도구 |
+|---|---|---|
+| **EVENT** | 행사 오브젝트(케이크·꽃다발·드레스·한복·웨딩·기념일), 사람 3+ | LLM Vision (Qwen + Groq 앙상블) |
+| **BEST** | 자랑 가능한 인생샷 — LLM 주관 평가 | LLM Vision |
+| **FOOD** | 음식이 화면 50%+ | LLM Vision |
+| **TRASH** | UI 스크린샷·심한 흐림·중복컷 | LLM Vision |
+
+### 3.4.2 자동 분류 (객관 신호 기반, 4등급)
+
+| 등급 | 결정 규칙 |
+|---|---|
+| **MEMORY+** | LLM 결과가 위 4등급 中 아님 AND 사람(face_count ≥ 1) AND Laplacian ≥ 100 AND 얼굴품질 ≥ 0.7 |
+| **MEMORY-** | 위 4등급 中 아님 AND 사람 ≥ 1 AND (Laplacian < 100 OR 얼굴품질 < 0.7) |
+| **NORMAL** | 위 4등급 中 아님 AND 사람 = 0 |
+| **EVENT-L** | EVENT 자산 中 CLIP cosine ≥ 0.92 그룹 내 품질 낮은 쪽 (자동 강등) |
+
+### 3.4.3 LLM 앙상블 — Qwen + Groq
+
+| 모델 | 강점 | 가중치 |
+|---|---|---|
+| **Qwen2.5-VL 7B (로컬)** | BEST 인식, 한국어, 무제한 호출 | 0.6 |
+| **Groq Llama-4-scout** | 속도 ×46, MEMORY+ 인식, 무료 | 0.4 |
+
+**투표 방식**:
+1. 두 모델 동의 → 그 등급 채택
+2. 불일치 + Qwen 신뢰도 ≥ 8 → Qwen 채택
+3. 불일치 + Groq 신뢰도 ≥ 8 → Groq 채택
+4. 둘 다 신뢰도 < 8 → 사용자 검토 큐
+
+### 3.4.4 효과 추정
+
+```
+v3.9 LLM 단독: 정확도 41% (8등급 헷갈림)
+v3.10 책임 분리: 정확도 ≥ 80% 예상
+  - 4등급 LLM: 객관성 ↑ (BEST·FOOD·TRASH 명확)
+  - 4등급 자동: 결정론 (사람 신호 + 흐림 신호로 명확)
+```
 
 ---
 
@@ -304,6 +356,92 @@ Galaxy Cloud는 "DCIM/Camera" 폴더만 자동 동기화하므로, Immich가 분
 
 ---
 
+## 3.7 단일 파이프라인 원칙 (v3.8 신규) ⭐
+
+> 사용자 정책 (2026-04-30): "모든 로직과 n8n 등 모두 파이프라인은 공유, 1개로 통합"
+
+### 3.7.1 원칙
+
+**모든 사용자(jw.son·eunju)는 단일 파이프라인을 공유한다.** 분류 알고리즘·n8n 워크플로우·Service·Repository·LLM 호출·DB 쿼리는 사용자 무관 단일 코드 경로로 동작하며, 사용자는 데이터 레벨(asset row의 `user_account` 컬럼)에서만 분기된다.
+
+**예외 처리는 절대 필수 항목만 허용** — 새 분기를 추가하려면 도메인 안전 영역(SDLC) 재검토 필요.
+
+### 3.7.2 허용된 사용자별 분기 (5가지, 절대 필수)
+
+| # | 분기 | 사유 | 위치 |
+|---|---|---|---|
+| 1 | **클라우드 백업** iCloud(jw.son) vs Galaxy Cloud(eunju) | 기기 OS·플랫폼 차이 | `service/cloud_sync_service.py` (provider 분기만) |
+| 2 | **기기 정리** iOS Shortcut(jw.son) vs MacroDroid(eunju) | 기기 OS 자동화 도구 차이 | `client/notifier.py` (cleanup-list endpoint 동일, trigger 도구만 다름) |
+| 3 | **HDD 폴더** `library/{user}/...` 데이터 분리 | 사용자별 데이터 격리 (External Library owner) | `domain/storage_layout.py` (path 계산만) |
+| 4 | **클라우드 quota 한도** iCloud 50GB / Galaxy 15GB | 사용자별 구독 차이 | `domain/user.py` (UserContext.cloud_quota_gb) |
+| 5 | **Galaxy 단방향 푸시** (eunju만) DCIM/Camera로 백업 자산 재배치 | Galaxy Cloud는 DCIM만 자동 동기화 | `service/cloud_sync_service.py` (eunju 한정 워크플로우 #PHOTO-6 sub) |
+
+### 3.7.3 절대 분기하지 않는 영역 (단일 코드)
+
+| 영역 | 단일 처리 |
+|---|---|
+| **Layer 0~7 모든 분류 로직** | 동일 점수 가산제, 동일 임계값 (CLIP 0.92/0.88, Laplacian 100) |
+| **n8n 워크플로우** (#PHOTO-1 ~ #PHOTO-7) | 사용자 컬럼은 데이터, 워크플로우는 1개씩 |
+| **DB schema** (photo_classification, conversion_log 등) | 동일 schema, user_account 컬럼만 |
+| **Ollama LLM 호출** | 동일 모델 (Qwen2.5-VL 7B), 동일 프롬프트 (`prompts/*.md`) |
+| **Immich API 호출** | 동일 client, asset.owner_id로 분기는 Immich 측 |
+| **변환 (Layer 0.5)** | 동일 ffmpeg 명령, 동일 검증 |
+| **유사도·EVENT 점수** | 사용자 무관 동일 |
+| **앨범 이름 생성 (§15.A)** | 동일 LLM, 동일 프롬프트 |
+| **KPI 측정** | 사용자별 통계는 분리 표시, 측정 로직은 동일 |
+
+### 3.7.4 코드 가이드라인
+
+```python
+# ❌ 안 됨 — 사용자별 분기 로직
+def classify(asset):
+    if asset.user == "jw.son":
+        threshold = 0.92
+    elif asset.user == "eunju":
+        threshold = 0.88
+    ...
+
+# ✅ 됨 — 단일 로직, UserContext는 인자만
+def classify(asset, user_ctx: UserContext):
+    threshold = 0.92  # 모두 동일
+    ...
+
+# ✅ 됨 — 데이터 레벨 분기 (필수 5가지 중 1)
+def push_to_cloud(asset, user_ctx: UserContext):
+    if user_ctx.cloud_provider == "icloud":
+        return icloud_client.upload(asset)
+    elif user_ctx.cloud_provider == "galaxy_cloud":
+        return galaxy_pipeline.push_to_dcim(asset)
+```
+
+### 3.7.5 새 분기 추가 시 절차
+
+새 사용자별 분기가 필요하다고 판단되면:
+
+1. **도메인 안전 영역 재검토**: SDLC sdlc-core.md 정책 적용 (DEEP-ARCHITECT 자동 승격)
+2. **이 §3.7.2 표에 추가** + 사유 명시
+3. **architecture_review.md §7 의사결정 추가**
+4. **모든 관련 워크플로우·코드 review**
+
+→ 분기 도입 비용을 의도적으로 높여 무분별한 분기를 방지.
+
+### 3.7.6 벤치마크 폴더도 단일 구조 (v3.8)
+
+```
+/Users/Shared/PhotoVault/_benchmark/   ← 사용자 통합
+├── EVENT/
+├── BEST/
+├── FOOD/
+├── MEMORY+/
+├── MEMORY-/
+├── NORMAL/
+└── TRASH/
+```
+
+이전 v3.7까지는 `_benchmark/{jw.son,eunju}/{등급}` 이중 구조였으나, **단일 파이프라인 원칙에 따라 사용자 무관 통합 측정**으로 변경.
+
+---
+
 ## 4. 분류 등급 (8단계) + 즐겨찾기
 
 | 등급 | 기준 | 백업 위치 | 기기 보관 | 즐겨찾기 |
@@ -312,8 +450,8 @@ Galaxy Cloud는 "DCIM/Camera" 폴더만 자동 동기화하므로, Immich가 분
 | ⭐ **EVENT-L** | 행사·기념일 + 유사컷 내 상대적 저품질 | HDD | ❌ 삭제 | ♥ 가능 |
 | ✦ **BEST** | 일반 장면 다양성 기준 선발 | iCloud/Galaxy Cloud + HDD | ✅ 유지 | ♥ 가능 |
 | 🍽 **FOOD** | 음식 베스트컷 (유사도 80% 기준 중복 제거) | HDD | ❌ 삭제 | ♥ 가능 |
-| ◆ **MEMORY+** | 사람·장면 있음 + 품질 양호 (BEST 탈락) | HDD | ❌ 삭제 | ♥ 가능 |
-| ◇ **MEMORY-** | 사람·장면 있음 + 품질 낮음 (BEST 탈락) | HDD | ❌ 삭제 | ♥ 가능 |
+| ◆ **MEMORY+** | 사람·장면 있음 + 품질 양호 | **동적 (quota 한도 내 품질 상위)** | **동적** ⭐v3.9 | ♥ 가능 |
+| ◇ **MEMORY-** | 사람·장면 있음 + 품질 낮음 | HDD | ❌ 삭제 | ♥ 가능 |
 | ○ **NORMAL** | 사람 없음·풍경·사물 (BEST 탈락) | HDD | ❌ 삭제 | ♥ 가능 |
 | 🗑 **TRASH** | 흐림 심함·스크린샷·중복 탈락 | 30일 후 삭제 | ❌ 삭제 | — |
 
@@ -443,7 +581,7 @@ ffmpeg -i input.mov \
 
 ### 영상 분석 특이사항
 
-- 3초 미만 영상 → 즉시 TRASH (실수로 찍은 것)
+- 5초 미만 영상 → 즉시 TRASH (실수로 찍은 것)
 - 5초마다 대표 프레임 추출 → Moondream2 분석
 - Whisper-small 한국어로 음성→텍스트 변환
 - 30초 영상 1개 기준 처리 시간: ~9초 (1080p H.264) / ~15초 (4K H.264) — 야간 배치로 충분
@@ -613,7 +751,7 @@ ffmpeg -i input.mov \
 | **트리거** | Layer 2 완료 후 즉시 (n8n 순차) |
 | **입력** | photo_classification 전체 컬럼 + similarity_group 정보 |
 | **출력** | grade (8등급 중 하나) · confidence_score (0~1) |
-| **처리 단계** | 1. **음식 분기 처리** (food_detected = true 그룹)<br>   - 그룹 내 pHash Hamming distance ≤ 6 → TRASH (중복 음식)<br>   - > 6 → FOOD<br>   - 그룹 내 가장 선명한 1장만 FOOD, 나머지 TRASH<br>2. **EVENT 점수 가산제** (일반 분기)<br>   - face_count ≥ 3 → +2<br>   - formal_dress = true → +1<br>   - event_objects ∩ {cake, flowers, stage, balloon, banner} 1개 이상 → +2<br>   - laplacian_variance > 300 → +1<br>   - voice_keywords 1개 이상 → +2 (영상만)<br>   - **합계 ≥ 4점 → EVENT 후보**<br>3. **유사컷 강등 (similarity_group 내)**<br>   - EVENT 후보 그룹: CLIP cosine ≥ 0.92 페어 발견 시 품질 낮은 쪽 → EVENT-L<br>   - BEST 후보 그룹: CLIP cosine ≥ 0.88 페어 발견 시 품질 낮은 쪽 → MEMORY+/MEMORY-<br>4. **BEST 선발** (EVENT 아닌 일반 자산)<br>   - similarity_group 내 가장 높은 (laplacian_variance × face_quality × exposure_score) → BEST<br>   - 나머지 → face_count ≥ 1 + quality ≥ 200 → MEMORY+<br>             face_count ≥ 1 + quality < 200 → MEMORY-<br>             face_count = 0 → NORMAL<br>5. **TRASH 판정**<br>   - laplacian_variance < 50 → TRASH<br>   - is_screenshot = true → TRASH (단 사용자 화이트리스트 예외)<br>   - 영상 길이 < 3초 → TRASH<br>   - 음식 중복 → TRASH (1번에서 처리)<br>6. **공유 EVENT 매칭**<br>   - `shared_candidate` 테이블에서 양 사용자 모두 EVENT 등급인 페어 추출<br>   - shared_event_album_queue 등록 (실제 앨범 생성은 Layer 5)<br>7. **confidence_score 산출**<br>   - 모든 신호의 일관성 점수 (예: face_count + scene_tags가 모두 행사 가리키면 0.9+) |
+| **처리 단계** | 1. **음식 분기 처리** (food_detected = true 그룹)<br>   - 그룹 내 pHash Hamming distance ≤ 6 → TRASH (중복 음식)<br>   - > 6 → FOOD<br>   - 그룹 내 가장 선명한 1장만 FOOD, 나머지 TRASH<br>2. **EVENT 점수 가산제** (일반 분기)<br>   - face_count ≥ 3 → +2<br>   - formal_dress = true → +1<br>   - event_objects ∩ {cake, flowers, stage, balloon, banner} 1개 이상 → +2<br>   - laplacian_variance > 300 → +1<br>   - voice_keywords 1개 이상 → +2 (영상만)<br>   - **합계 ≥ 4점 → EVENT 후보**<br>3. **유사컷 강등 (similarity_group 내)**<br>   - EVENT 후보 그룹: CLIP cosine ≥ 0.92 페어 발견 시 품질 낮은 쪽 → EVENT-L<br>   - BEST 후보 그룹: CLIP cosine ≥ 0.88 페어 발견 시 품질 낮은 쪽 → MEMORY+/MEMORY-<br>4. **BEST 선발** (EVENT 아닌 일반 자산)<br>   - similarity_group 내 가장 높은 (laplacian_variance × face_quality × exposure_score) → BEST<br>   - 나머지 → face_count ≥ 1 + quality ≥ 200 → MEMORY+<br>             face_count ≥ 1 + quality < 200 → MEMORY-<br>             face_count = 0 → NORMAL<br>5. **TRASH 판정**<br>   - laplacian_variance < 50 → TRASH<br>   - is_screenshot = true → TRASH (단 사용자 화이트리스트 예외)<br>   - 영상 길이 < 5초 → TRASH<br>   - 음식 중복 → TRASH (1번에서 처리)<br>6. **공유 EVENT 매칭**<br>   - `shared_candidate` 테이블에서 양 사용자 모두 EVENT 등급인 페어 추출<br>   - shared_event_album_queue 등록 (실제 앨범 생성은 Layer 5)<br>7. **confidence_score 산출**<br>   - 모든 신호의 일관성 점수 (예: face_count + scene_tags가 모두 행사 가리키면 0.9+) |
 | **도구** | n8n Function 노드 (JS) + PostgreSQL CTE 쿼리 |
 | **DB 변경** | `photo_classification.grade`, `confidence_score`, `is_event_candidate`, `shared_event_match_id` |
 | **실패 처리** | 점수 계산 NULL → grade='UNCLASSIFIED', Layer 4 강제 큐 |
@@ -658,10 +796,23 @@ ffmpeg -i input.mov \
 
 #### Layer 6 — 기기 정리
 
+> **v3.11 추가 — 백업 검증 필수 게이트** (사용자 명시 정책 2026-05-02)
+>
+> 디바이스 삭제 전 반드시 `core/service/backup_verifier.py`의 3중 검증 PASS 확인:
+> 1. DB sha256 + size 정상
+> 2. Immich External Library에 파일 실 존재 + 크기 일치
+> 3. 파일 SHA256 재계산 == DB 기록값
+> 4. Immich asset 테이블 등록 + deletedAt IS NULL
+>
+> **하나라도 실패하면 cleanup_candidates 응답에서 자동 제외 → 디바이스에서 절대 삭제되지 않음.**
+>
+> 엔드포인트: `GET /cleanup_candidates?grades=NORMAL,TRASH,FOOD&min_age_days=14`
+> TC: `wiki/03-pdca/active/report/TC-phase5-backup-verifier.md`
+
 | 항목 | 내용 |
 |---|---|
 | **트리거** | jw.son: iOS Shortcut Personal Automation (충전 시작 + Wi-Fi(home) + 03:30~05:30)<br>eunju: MacroDroid 매크로 #1 동일 조건 |
-| **입력** | `cleanup-list API` 응답 = cleanup_queue WHERE grace_until < NOW() AND processed_at IS NULL |
+| **입력** | `GET /cleanup_candidates` (검증 통과 + 14일 경과 자산만) |
 | **출력** | 기기 사진앱에서 삭제 + cleanup_queue.processed_at 갱신 |
 | **처리 단계** | **iOS (jw.son)**<br>1. Shortcut 트리거 → GET cleanup-list?user=jw.son<br>2. 응답 JSON 파싱 → asset_ids<br>3. Photos.framework `PHAssetChangeRequest.deleteAssets()`<br>4. → "최근 삭제된 항목" 이동<br>5. POST cleanup-result {deleted_count, failed_ids}<br><br>**Galaxy (eunju)** — MacroDroid 4 매크로<br>1. **#1**: cleanup-list GET → 변수 저장 → #2 트리거<br>2. **#2**: Loop → MediaStore 조회 → File Delete → MEDIA_SCANNER broadcast → #3 트리거<br>3. **#3**: cleanup-result POST → 알림 → #4 트리거<br>4. **#4**: backup-list GET → DCIM/PhotoSystemBackup/ 다운로드 → MEDIA_SCANNER (Galaxy Cloud 자동 동기화) |
 | **도구** | iOS Shortcuts 17+ · MacroDroid 5.x 무료 · n8n Webhook |
@@ -729,6 +880,22 @@ ffmpeg -i input.mov \
 ## 6. 실행 스케줄 (v3.7 갱신 — 03:00 동기화 일괄)
 
 > 사용자 정책: 모든 동기화 작업은 새벽 3시에 일괄 실행 (분석은 16:00 분리 유지)
+>
+> **개발 모드 (현재, ~Phase 4)**: 시간 제약 없음. `cron.dev` (30분 간격) 적용. 운영 단계 진입 시 `cron.prod` (03:00) 로 교체.
+>
+> ```bash
+> # 개발 → 운영 전환:
+> crontab /Users/jw-home/Work/photo_system/ai-photo-system/scripts/cron.prod
+> ```
+
+### 6.0 개발 vs 운영 모드 (v3.11 신규)
+
+| 모드 | 적용 시점 | maintenance.sh 주기 | n8n classify 주기 |
+|---|---|---|---|
+| **개발** (현재) | Phase 0~4 진행 중 | 30분 (`cron.dev`) | 5분 |
+| **운영** | Phase 4.5 dry-run 완료 후 | 매일 03:00 (`cron.prod`) | 매일 03:00 |
+
+운영 전환 트리거: (1) 14일 누적 dry-run 정상 / (2) 사용자 보호 메커니즘 가동 / (3) 사용자 명시 승인.
 
 ### 6.1 분석 시간대 (16:00~)
 
@@ -1496,6 +1663,32 @@ Step 9  SSD 임시 vault 보존 (7일 grace)
 | 2026-04-30 | 16:00 분석 단계 분리 유지 | 시간 소요 (수 시간), 동기화와 성격 다름 |
 | 2026-04-30 | Layer 6 기기 정리 시각 = 03:30~05:30 윈도 | 기기 트리거 한계, 정시 보장 불가 |
 | 2026-04-30 | 동기화 단계 병렬화 = 안 함 (순차) | 13분 내 충분히 짧음 |
+| 2026-05-01 | **♥ 시 자동 기기 복원 = YES** (#25) | 사용자가 다시 보고 싶을 때 즉시 가져오기 |
+| 2026-05-01 | iCloud 사진 동기화 정책 = 양쪽 (A+B) (#26) | 자동 + iOS Shortcut Save fallback |
+| 2026-05-01 | Restore 트리거 시점 = 03:30 윈도 (#27) | 사용자 정책 일관 |
+| 2026-05-01 | MacroDroid 매크로 = 통합 #4 (#28) | restore + backup 단일 워크플로우 |
+| 2026-05-01 | TRASH ♥ 복원 시 = NORMAL 승격 (#29) | 안전한 복귀 |
+| 2026-05-01 | **MEMORY+ 폰 보관** + 동적 quota (#30) ⭐ | EVENT+BEST+MEMORY+ 품질 상위 |
+| 2026-05-01 | 사용자별 quota = jw.son 50GB / eunju 15GB (#31) | 현재 클라우드 한도 |
+| 2026-05-01 | 사진+영상 quota = 80% (jw.son 40GB / eunju 12GB) (#32) | iCloud는 다른 데이터도 차지 |
+| 2026-05-01 | 품질 점수 = face × √laplacian × scene (#33) | 얼굴 우선 가중 |
+| 2026-05-01 | quota 80% 도달 시 Telegram 알림 (#34) | 사용자 인지 |
+| 2026-05-01 | quota 95% 신규 차단 = NO (#34b) | 자동 정리로 처리 |
+| 2026-05-01 | **동영상도 동일 8등급 체계** | EVENT 음성 키워드 +2 추가 |
+| 2026-05-01 | **5초 미만 영상 = 즉시 TRASH** (3초 → 5초) (#35) | 짧은 영상은 의미 없는 실수컷, 10초는 너무 길어 오류 가능성 |
+| 2026-05-01 | ⭐ **외부 무료 LLM 활용 정책 변경** (#36) | 사진 Groq 외부 전송 허용 (무료 한도 내), v3.x §1 변경 |
+| 2026-05-01 | Groq Llama-4-scout (Vision) + Qwen2.5-VL 앙상블 (#37) | Qwen 0.6 + Groq 0.4 가중 투표 |
+| 2026-05-01 | Groq API key = `.env`에 저장 (`GROQ_API_KEY`) (#38) | 향후 `.env.gpg`로 전환 |
+| 2026-05-01 | **분류 책임 분리** = LLM 4등급 + 자동 4등급 (#39) | LLM 8등급 정확도 41% 한계, 책임 분리로 ≥80% 목표 |
+| 2026-05-01 | LLM 4등급 = EVENT/BEST/FOOD/TRASH (#40a) | 의미 분류, LLM 명확하게 판단 가능 |
+| 2026-05-01 | 자동 4등급 = MEMORY+/MEMORY-/NORMAL/EVENT-L (#40b) | face_count + Laplacian + CLIP cosine 결정론적 |
+| 2026-05-01 | **모든 영상 변환 X — 원본 그대로 보관** (#41) | 사용자 정책: 고용량 긴 영상 변환 비효율, 원본 효율 우선 |
+| 2026-05-01 | source_path 기반 재실행 idempotency (#42) | DB processed_paths set 조회 → 이미 처리된 자산 skip |
+| 2026-05-01 | 추억앨범 자동 생성 (#43) | photo.album/album_member, 폴더 기반 + 연도별 + (선택)시간·장소 군집 |
+| 2026-04-30 | ⭐ **단일 파이프라인 원칙** — 모든 사용자 동일 로직·n8n·Service | 유지보수성 ↑, 분기 비용 의도적 ↑ |
+| 2026-04-30 | 허용된 사용자별 분기 = **5가지만** (§3.7.2) | 클라우드 백업/기기 정리/HDD path/quota/Galaxy 단방향 푸시 |
+| 2026-04-30 | 벤치마크 폴더 = **단일 구조** (사용자 통합 100장) | 단일 파이프라인 원칙 일관성 |
+| 2026-04-30 | 새 사용자별 분기 추가 = **DEEP-ARCHITECT 필수** | 분기 도입 비용 의도적 ↑ |
 
 ---
 
@@ -2294,7 +2487,7 @@ T+30일  [TRASH 등급의 경우 HDD 영구삭제]
    ┌─────────────────────────────┐
    │ Layer 1.v2: 길이 분기        │
    ├─────────────────────────────┤
-   │ < 3초     → 즉시 TRASH        │
+   │ < 5초     → 즉시 TRASH        │
    │ 3~30초    → 표준 분석         │
    │ 30s~5분   → 5초 간격 샘플     │
    │ > 5분     → 30초 간격 샘플    │
@@ -2413,7 +2606,7 @@ mean_volume < -50dB:
 
 ---
 
-*이 문서는 v3.7 FINAL. Phase 0 + Phase 0-LLM 인벤토리 완료 후 실측치 반영하여 v3.8로 갱신 예정.*
+*이 문서는 v3.9 FINAL. Phase 0 + Phase 0-LLM 인벤토리 완료 후 실측치 반영하여 v3.10으로 갱신 예정.*
 *관련 문서:*
 - *`local_llm_evaluation.md` (v1.3 FINAL) — 모델 평가·벤치마크 정량 비교*
 - *`architecture_review.md` (v1.4 FINAL) — 아키텍처 평가 + 우려점 33건 + 9.0/10 도달 로드맵 + 코드 구조 §9.4 + storage_service*
