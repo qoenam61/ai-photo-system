@@ -1,12 +1,14 @@
-"""Layer 5 — 등급 폴더 이동 + Immich originalPath 갱신.
+"""Layer 5 — 등급 폴더 이동 + 뷰 심볼릭 + Immich originalPath 갱신.
 
-설계 §5.5 — 분류 변경 후 외장 HDD `library/{GRADE}/` 폴더 정합 유지.
+설계 §5.5 — 분류 변경 후 외장 HDD `library/{GRADE}/` 폴더 정합 유지 +
+`immich-views/{GRADE}/` 통합 view symlink 갱신 (legacy + iPhone 모두).
 
 호스트 운용 (외장 HDD 직접 액세스). dedup_similar / reclassify_*
-스크립트에서 호출. iPhone 업로드 자산(`/usr/src/app/upload/...`)은 등급 폴더
-사용 안 함 — 변경 없음.
+스크립트에서 호출. iPhone 업로드 자산(`/usr/src/app/upload/...`)은 library
+폴더 이동은 안 하지만 view symlink는 등급별로 갱신.
 
   apply_grade_change(asset_id, new_grade) → (success, message)
+  refresh_view_link(asset_id, immich_path, new_grade) → bool
 """
 
 from __future__ import annotations
@@ -18,9 +20,67 @@ from pathlib import Path
 
 LIBRARY_HOST = Path("/Volumes/Immich-Storage/immich-media/library")
 LIBRARY_IMMICH = "/mnt/external/library"
+VIEWS_HOST = Path("/Volumes/Immich-Storage/immich-views")
 
 VALID_GRADES = {"BEST", "EVENT", "EVENT-L", "FOOD",
                 "MEMORY+", "MEMORY-", "NORMAL", "TRASH"}
+
+
+def _immich_to_host(immich_path: str) -> Path:
+    """Immich originalPath → 호스트 경로 (외장 HDD)."""
+    if immich_path.startswith(LIBRARY_IMMICH):
+        return Path(immich_path.replace(LIBRARY_IMMICH,
+                                         "/Volumes/Immich-Storage/immich-media/library", 1))
+    if immich_path.startswith("/usr/src/app/upload"):
+        return Path(immich_path.replace("/usr/src/app/upload",
+                                         "/Volumes/Immich-Storage/immich-uploads", 1))
+    return Path(immich_path)
+
+
+def refresh_view_link(asset_id: str, immich_path: str, new_grade: str) -> bool:
+    """immich-views/{GRADE}/{asset_id}.{ext} symlink 갱신.
+
+    이전 등급 view 자동 제거 (모든 등급 폴더 검사) + 새 등급 폴더 symlink 생성.
+    target = 호스트 절대경로 (외장 HDD 자산).
+
+    Returns: True (갱신 성공) / False (target 없음 등)
+    """
+    if new_grade not in VALID_GRADES:
+        return False
+
+    target = _immich_to_host(immich_path)
+    if not target.exists():
+        return False
+
+    ext = target.suffix.lstrip(".")
+    link_name = f"{asset_id}.{ext}"
+
+    # 이전 등급 view 제거
+    for g in VALID_GRADES:
+        old_link = VIEWS_HOST / g / link_name
+        if old_link.is_symlink() or old_link.exists():
+            try:
+                old_link.unlink()
+            except Exception:
+                pass
+
+    # 새 등급 폴더 symlink 생성
+    new_dir = VIEWS_HOST / new_grade
+    new_dir.mkdir(parents=True, exist_ok=True)
+    new_link = new_dir / link_name
+    try:
+        new_link.symlink_to(target)
+        return True
+    except FileExistsError:
+        # race — 다시 unlink + symlink
+        try:
+            new_link.unlink()
+            new_link.symlink_to(target)
+            return True
+        except Exception:
+            return False
+    except Exception:
+        return False
 
 
 def _immich_get_path(asset_id: str) -> tuple[str, str] | None:
@@ -77,10 +137,17 @@ def apply_grade_change(asset_id: str, new_grade: str) -> tuple[bool, str]:
     immich_id, immich_path = info
 
     if not immich_path.startswith(LIBRARY_IMMICH):
-        return False, f"skip:not_in_library:{immich_path}"
+        # iPhone 업로드 등 library/ 외부 자산은 폴더 이동 안 하지만 view는 갱신
+        view_ok = refresh_view_link(asset_id, immich_path, new_grade)
+        msg = "skip:not_in_library"
+        if view_ok:
+            msg += "+view_ok"
+        return False, msg
 
     current_grade = Path(immich_path).parent.name
     if current_grade == new_grade:
+        # library 자산은 이미 정합. 단 view symlink는 항상 갱신 (안전망).
+        refresh_view_link(asset_id, immich_path, new_grade)
         return True, "noop:already_correct"
 
     fname = Path(immich_path).name
@@ -104,6 +171,9 @@ def apply_grade_change(asset_id: str, new_grade: str) -> tuple[bool, str]:
         except Exception:
             pass
         return False, "fail:immich_update_failed"
+
+    # immich-views 통합 view symlink 갱신
+    refresh_view_link(asset_id, new_immich_path, new_grade)
 
     return True, f"ok:{current_grade}→{new_grade}"
 

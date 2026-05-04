@@ -178,6 +178,31 @@ TRASH = 다음 둘 중 하나:
 
 LLM prompt는 `core/service/classifier.py:PROMPT`에 반영.
 
+### 외장 HDD 통합 view (사용자 명시 2026-05-04)
+
+iPhone 자산(`immich-uploads/`) + legacy 자산(`immich-media/library/{GRADE}/`)은 Immich 자체 구조상 분리. 등급별 통합 가시화는 **`immich-views/{GRADE}/{asset_id}.{ext}` symlink**로 해결:
+
+```
+/Volumes/Immich-Storage/
+├── immich-media/library/{GRADE}/    ← legacy 자산 원본 (External Library)
+├── immich-uploads/upload/{user}/    ← iPhone 자동 백업 원본
+└── immich-views/
+    ├── 월별/                         ← 기존 월별 view
+    ├── BEST/                         ← 신규: 등급별 통합 view (legacy + iPhone)
+    ├── EVENT/
+    ├── EVENT-L/
+    ├── FOOD/
+    ├── MEMORY+/
+    ├── MEMORY-/
+    ├── NORMAL/
+    └── TRASH/
+```
+
+- symlink target = 호스트 절대경로 (외장 HDD 자산)
+- 디스크 추가 ~0
+- `core/pipeline/layer5_album.refresh_view_link` — 분류 변경 시 자동 갱신
+- `scripts/build_grade_views.py` — 전수 일괄 생성 (`maintenance.sh` `[7/7]` 30분 cron)
+
 ### 자동 분류 룰 (분류 결정 트리)
 
 신규 자산은 n8n `photo-auto-classify` (5분 cron) → `/process_pending` → `/classify_and_persist` 자동 흐름:
