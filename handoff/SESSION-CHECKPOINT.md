@@ -7,8 +7,9 @@
 
 | 작업 | PID | 시작 | 완료 예상 | 로그 |
 |---|---|---|---|---|
-| ~~EVENT-L AI promote 4,290장~~ | 7714 | 2026-05-04 21:55 | **완료 — 236장 promote (3,846 fail)** | `/tmp/promote_event_l.log` |
-| **EVENT-L promote v2 (잔여 4,054장)** | **42937** | 2026-05-05 ~22:00 | ~5h 후 | `/tmp/promote_event_l_v2.log` |
+| ~~promote v1 (4,290장)~~ | 7714 | 2026-05-04 | **완료 — 236장 promote** | `/tmp/promote_event_l.log` |
+| ~~promote v2 (4,054장)~~ | 42937 | 2026-05-05 ~22:00 | **완료 — 737장 promote (2,469 fail)** | `/tmp/promote_event_l_v2.log` |
+| **promote v3 (잔여 3,317장)** | **40329** | 2026-05-05 ~23:00 | ~30min~5h | `/tmp/promote_event_l_v3.log` |
 
 > 강화 정책 발효 후 (TRASH 정의 / camera_make / 장중 차단) 재실행. Groq 우선 0.72초/장.
 
