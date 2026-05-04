@@ -34,7 +34,6 @@ from pydantic import BaseModel
 logger = logging.getLogger("photo-classify")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
-from core.client.qwen_client import QwenClient
 from core.service.backup_verifier import verify_asset, _find_immich_asset, _resolve
 from core.service.classifier import Classifier, Decision, opencv_signals, exif_camera_make
 from core.service.cleanup_service import enqueue_cleanup
@@ -71,8 +70,7 @@ _classifier: Classifier | None = None
 def _get_classifier() -> Classifier:
     global _classifier
     if _classifier is None:
-        # v3.12: Qwen 단독 (사진 외부 전송 금지)
-        _classifier = Classifier(qwen=QwenClient())
+        _classifier = Classifier()
     return _classifier
 
 
