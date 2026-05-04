@@ -1,15 +1,14 @@
-"""유사컷 강등 — EXIF 시각 ±10초 + 카메라 동일 그룹화.
+"""유사컷 강등 — EXIF 같은-초 (1초 단위) + 카메라 동일 그룹화.
 
-설계 §4 + 사용자 명시 정책 (2026-05-04):
-  모든 등급(TRASH 제외) 그룹 내 최고 quality 1개만 보존, 나머지 → TRASH 직접.
-
-  대상 등급: EVENT, EVENT-L, BEST, FOOD, MEMORY+, MEMORY-, NORMAL
-  → TRASH (grade_source='dedup_demoted')
+설계 §4 + 사용자 명시 정책 (2026-05-04 갱신):
+  - 그룹화: 같은 초 (1초 단위 bucket) + 같은 카메라 (사용자 명시: 초가 다르면 다른 사진)
+  - 그룹 보존 1장: 원래 grade 유지 (quality 최고)
+  - 그룹 dedup: EVENT-L 강등 (사용자 명시: TRASH 아닌 EVENT-L, 원본 보존)
 
 quality 점수 = laplacian_variance × file_size_bytes (높을수록 보존)
 
 Usage:
-  PYTHONPATH=. poetry run python scripts/dedup_similar.py [--dry-run]
+  PYTHONPATH=. poetry run python scripts/dedup_similar.py [--dry-run] [--window-seconds N]
 """
 
 from __future__ import annotations
@@ -32,13 +31,14 @@ DB_DSN = (
 )
 
 DEDUP_FROM = ["EVENT", "EVENT-L", "BEST", "FOOD", "MEMORY+", "MEMORY-", "NORMAL"]
-DEMOTE_TARGET = "TRASH"
+DEMOTE_TARGET = "EVENT-L"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="DB 변경 X, 통계만")
-    parser.add_argument("--window-seconds", type=int, default=10, help="시각 군집 ±초")
+    parser.add_argument("--window-seconds", type=int, default=1,
+                        help="시각 그룹화 단위(초). 1=정확히 같은 초")
     args = parser.parse_args()
 
     grade_filter = ", ".join(f"'{g}'" for g in DEDUP_FROM)
@@ -77,16 +77,17 @@ def main() -> None:
         """)
         candidates = cur.fetchall()
 
-    print(f"📊 dedup 후보 (TRASH 강등 대상): {len(candidates)} 자산")
+    print(f"📊 dedup 후보 ({DEMOTE_TARGET} 강등 대상): {len(candidates)} 자산")
 
     by_grade: dict[str, int] = {}
     for grade, _, _, _ in candidates:
         by_grade[grade] = by_grade.get(grade, 0) + 1
 
-    print("\n원래 등급별 분포:")
+    print(f"\n원래 등급별 분포 (보존 1장 외):")
     for g in DEDUP_FROM:
         if g in by_grade:
-            print(f"  {g:8s} → TRASH: {by_grade[g]:5d} 장")
+            mark = "→ 동급유지" if g == DEMOTE_TARGET else f"→ {DEMOTE_TARGET} 강등"
+            print(f"  {g:8s} {mark}: {by_grade[g]:5d} 장")
 
     if args.dry_run:
         print("\n💡 dry-run — DB 변경 X")
@@ -96,17 +97,18 @@ def main() -> None:
         return
 
     asset_ids = [a for _, a, _, _ in candidates]
-    print(f"\n실제 TRASH 강등 적용 중 ({len(asset_ids)}장)...")
+    print(f"\n실제 {DEMOTE_TARGET} 강등 적용 중 ({len(asset_ids)}장)...")
     with conn.cursor() as cur:
         cur.execute(
             """UPDATE photo.classification
                SET grade = %s,
                    grade_source = 'dedup_demoted',
                    updated_at = NOW()
-               WHERE asset_id = ANY(%s)""",
-            (DEMOTE_TARGET, asset_ids),
+               WHERE asset_id = ANY(%s)
+                 AND grade != %s""",
+            (DEMOTE_TARGET, asset_ids, DEMOTE_TARGET),
         )
-        print(f"  DB 갱신: {cur.rowcount} 강등")
+        print(f"  DB 갱신: {cur.rowcount} 강등 (이미 {DEMOTE_TARGET} 자산은 noop)")
 
     print("\n🔧 Layer 5 — 외장 HDD 등급 폴더 정합 ...")
     ok = fail = 0
