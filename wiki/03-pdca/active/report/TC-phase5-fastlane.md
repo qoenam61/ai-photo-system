@@ -164,17 +164,20 @@
 - [ ] **EXPECTED-9**: E2E smoke (다음 단계)
 - [ ] **EXPECTED-10**: doc-consistency-check (다음 단계)
 
-## 2026-05-03 진행 누적 결과
+## 2026-05-03 ~ 2026-05-04 진행 누적 결과
 
 | 항목 | 결과 |
 |---|---|
 | dedup_demoted 정리 | 45/45장 (100%, 110 MB 회수) |
 | TRASH cleanup_queue 등록 | 603장 (24h grace 대기) |
-| TRASH 보류 (`auto_short_video`) | 562장 — 사용자 검토 후 별도 |
-| 신규 코드 | `core/service/cleanup_service.py`, `scripts/cleanup_run.py`, `/cleanup_enqueue` API, `maintenance.sh` cron 추가 |
+| **`auto_short_video` 정책 5초→3초 변경** | classifier.py 갱신, 컨테이너 재배포 |
+| **562장 재분류** | 221장 EVENT-L 환원 / 341장 TRASH 유지 |
+| **341장 short_video 즉시 정리** | grace=0, **1,072 MB 회수** |
+| 신규 코드 | `core/service/cleanup_service.py`, `scripts/cleanup_run.py`, `/cleanup_enqueue`, `scripts/reclassify_short_video.py`, `maintenance.sh` cron 추가 |
 | 검증 | 호스트 cleanup_run, 컨테이너 read-only 마운트 보호망 유지 |
 | sample verify | 1000장 99.90% PASS (timeout 1건 — 무결성 문제 X) |
 | **전수 verify** | **12,160/12,160 100% PASS** (2.2/s, 90분 소요) |
+| **누적 회수** | **약 1.18 GB** (45 dedup + 341 short_video) |
 
 ## 롤백 절차
 

@@ -162,7 +162,7 @@ def _ensemble(qg: str, qc: int, gg: str, gc: int) -> tuple[str, int, str]:
 
 
 def _auto_grade(llm_grade: str, signals: Signals) -> tuple[str, str]:
-    if signals.is_video and 0 < signals.duration_seconds < 5.0:
+    if signals.is_video and 0 < signals.duration_seconds < 3.0:
         return "TRASH", "auto_short_video"
     if signals.is_screenshot:
         return "TRASH", "auto_screenshot"
@@ -265,6 +265,6 @@ class Classifier:
     def classify_video(self, path: Path) -> Decision:
         dur = video_duration(path)
         sig = Signals(is_video=True, duration_seconds=dur)
-        if 0 < dur < 5.0:
+        if 0 < dur < 3.0:
             return Decision(grade="TRASH", confidence=10, source="auto_short_video")
         return Decision(grade="EVENT-L", confidence=8, source="auto_video")
