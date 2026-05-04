@@ -22,8 +22,8 @@ fail() { FAIL=$((FAIL+1)); FAILS+=("$1"); printf '  ❌ %-40s %s\n' "$1" "$2"; }
 
 echo "=== Doc Consistency Check ==="
 
-# 1. CLAUDE.md "Phase 5 단축 활성화" 섹션 존재
-if grep -q "단축 결정 (사용자 명시, 2026-05-03)" CLAUDE.md; then
+# 1. CLAUDE.md "Phase 5 단축 활성화" 섹션 존재 (날짜 무관 grep)
+if grep -qE "단축 결정 \(사용자 명시" CLAUDE.md; then
   ok "CLAUDE.md:phase5_fastlane" "단축 결정 섹션 존재"
 else
   fail "CLAUDE.md:phase5_fastlane" "단축 결정 섹션 미발견"
