@@ -72,6 +72,7 @@ class Signals:
     is_screenshot: bool = False
     is_video: bool = False
     duration_seconds: float = 0.0
+    camera_make: str = ""
 
 
 @dataclass(slots=True)
@@ -157,6 +158,7 @@ def opencv_signals(path: Path) -> Signals:
             face_count=face_count,
             laplacian_variance=laplacian,
             is_screenshot=is_screenshot,
+            camera_make=camera,
         )
     except Exception:
         return Signals()
@@ -187,17 +189,33 @@ def _ensemble(qg: str, qc: int, gg: str, gc: int) -> tuple[str, int, str]:
 
 
 def _auto_grade(llm_grade: str, signals: Signals) -> tuple[str, str]:
+    """자동 등급 결정 (CLAUDE.md "자동 분류 룰" 결정 트리 구현).
+
+    우선순위:
+      1. 영상 길이 (< 3초 TRASH / >= 3초 EVENT-L)
+      2. is_screenshot (UI 스크린샷)
+      3. LLM 응답 (있으면 그대로 — BEST/EVENT/FOOD/TRASH)
+      4. Auto 신호 fallback (face / camera_make / laplacian)
+    """
     if signals.is_video and 0 < signals.duration_seconds < 3.0:
         return "TRASH", "auto_short_video"
+    if signals.is_video and signals.duration_seconds >= 3.0:
+        return "EVENT-L", "auto_video"
     if signals.is_screenshot:
         return "TRASH", "auto_screenshot"
     if llm_grade in LLM_GRADES:
         return llm_grade, "llm_ensemble"
-    if signals.face_count == 0:
+
+    # LLM 미응답 → auto 신호 fallback
+    if signals.face_count > 0:
+        if signals.laplacian_variance < 100:
+            return "MEMORY-", "auto_blurry"
+        return "MEMORY+", "auto_quality_ok"
+    # 사람 없음
+    if signals.camera_make:
         return "NORMAL", "auto_no_face"
-    if signals.laplacian_variance < 100:
-        return "MEMORY-", "auto_blurry"
-    return "MEMORY+", "auto_quality_ok"
+    # 사람 없음 + 카메라 메타 없음 = 의미 없는 사진 가능성
+    return "TRASH", "auto_screenshot"
 
 
 class Classifier:
