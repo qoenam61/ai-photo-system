@@ -58,6 +58,30 @@
    ```
 3. **결과 통계 사용자에게 보고** + cleanup_queue 재개 결정 받기
 
+4. **🔔 promote 완료 시 cron 운영 모드 전환** (사용자 명시 2026-05-05):
+   ```bash
+   # n8n photo-auto-classify: 5분 → 03:00 1회
+   docker exec -i trading_postgres psql -U trading_user -d trading_db <<'SQL'
+   UPDATE public.workflow_entity
+   SET nodes = (SELECT jsonb_agg(
+     CASE WHEN node->>'id' = 'trigger'
+     THEN jsonb_set(jsonb_set(node, '{name}', '"Daily 03:00 KST"'),
+            '{parameters,rule,interval}',
+            '[{"field":"cronExpression","expression":"0 3 * * *"}]'::jsonb)
+     ELSE node END)::json FROM jsonb_array_elements(nodes::jsonb) AS node)
+   WHERE name = 'photo-auto-classify';
+   SQL
+
+   # crontab maintenance.sh: 30분 → 03:00
+   crontab -l | sed 's|^\*/30 \* \* \* \* \(/Users/jw-home/.*/maintenance.sh.*\)|0 3 * * * \1|' | crontab -
+   ```
+
+   적용 후 일상 운영 모드:
+   - n8n photo-auto-classify: 03:00 1회
+   - maintenance.sh: 03:00 1회
+   - memory_guard.sh: 30분 (보호선 유지)
+   - photo-classify 재시작: 04:00 일일
+
 ## 미커밋 파일
 
 ```bash
