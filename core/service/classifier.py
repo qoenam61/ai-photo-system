@@ -1,12 +1,10 @@
-"""사진 분류 서비스 — Vision 모델 체인 + 자동 4등급.
+"""사진 분류 서비스 — LiteLLM 게이트웨이 + 자동 4등급.
 
 설계 §3 분류 책임 분리 (LLM 4등급, 자동 4등급).
-**v3.13 (2026-05-03 사용자 명시)**: VISION_MODEL_CHAIN env 기반 동적 라우팅.
-  - 기본: "groq,qwen" (Groq 우선, rate limit/실패 시 Qwen fallback)
-  - "qwen" 단독: 로컬 전용 (v3.12 정책)
-  - "groq" 단독: 외부 전용
-
-Groq는 추가로 텍스트 작업 (§15: 앨범명, KPI 요약, NL 질의)에도 사용.
+**v3.14 (2026-05-04)**: LiteLLM 게이트웨이 통합.
+  - photo/classify → Qwen VL 7B (로컬, 우선)
+  - photo/classify-fb → Groq Llama-4-Scout (fallback, LiteLLM 내장)
+  - 체인/스로틀 관리는 LiteLLM이 담당
 
 Inputs:
   Path → 이미지 파일 경로
@@ -28,7 +26,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
-import httpx
 import numpy as np
 from PIL import Image, ExifTags
 
@@ -38,8 +35,7 @@ try:
 except ImportError:
     pass
 
-from core.client.groq_client import GroqClient, GroqRateLimitError
-from core.client.qwen_client import QwenClient
+from core.client.llm_gateway import vision_classify, LLMGatewayError
 
 logger = logging.getLogger(__name__)
 
@@ -197,82 +193,46 @@ def _auto_grade(llm_grade: str, signals: Signals) -> tuple[str, str]:
 
 
 class Classifier:
-    """v3.13: VISION_MODEL_CHAIN env로 동적 라우팅 (groq/qwen, fallback 자동).
+    """v3.14: LiteLLM 게이트웨이 통합 (photo/classify → photo/classify-fb).
 
-    환경변수:
-      VISION_MODEL_CHAIN  콤마 리스트, 좌→우 우선순위 (기본 "groq,qwen")
-      GROQ_API_KEY        없으면 groq 자동 스킵
+    체인/스로틀 관리는 LiteLLM이 담당.
+    Decision.qwen_* / groq_* 필드는 실제 사용 모델로 채워진다.
     """
 
-    def __init__(
-        self,
-        qwen: QwenClient | None = None,
-        groq: GroqClient | None = None,
-        chain: str | None = None,
-    ) -> None:
-        self._qwen = qwen or QwenClient()
-        self._groq = groq if groq is not None else (
-            GroqClient() if os.getenv("GROQ_API_KEY") else None
-        )
-        chain_str = chain or os.getenv("VISION_MODEL_CHAIN", "groq,qwen")
-        self._chain = [m.strip().lower() for m in chain_str.split(",") if m.strip()]
-        self._throttled_until: dict[str, float] = {}
-
-    def _vision_call(
-        self, model: str, img_b64: str
-    ) -> tuple[str, int, int, bool] | None:
-        """단일 모델 호출. 성공 시 (grade, conf, ms, contains_child), 실패 시 None."""
-        if model == "groq":
-            if not self._groq:
-                return None
-            try:
-                r = self._groq.vision(PROMPT, "이 사진의 등급?", img_b64)
-                return r.grade, r.confidence, r.elapsed_ms, r.contains_child
-            except GroqRateLimitError as e:
-                wait = min(e.retry_after, 120)
-                self._throttled_until["groq"] = time.time() + wait
-                logger.warning(
-                    "groq rate limited, capped fallback %ds (retry-after=%ds)",
-                    wait, e.retry_after,
-                )
-                return None
-            except (httpx.HTTPError, ValueError) as e:
-                logger.warning("groq vision failed: %s", e)
-                return None
-        if model == "qwen":
-            try:
-                r = self._qwen.vision(PROMPT, "이 사진의 등급?", img_b64)
-                return r.grade, r.confidence, r.elapsed_ms, r.contains_child
-            except (httpx.HTTPError, ValueError) as e:
-                logger.warning("qwen vision failed: %s", e)
-                return None
-        return None
+    def __init__(self, **_kwargs) -> None:
+        # 구버전 QwenClient/GroqClient 파라미터 무시 (호환성)
+        pass
 
     def classify_image(self, path: Path, signals: Signals | None = None) -> Decision:
         sig = signals or opencv_signals(path)
         img_b64 = encode_image(path)
 
-        used_model = ""
         grade, conf, ms, contains_child = "", 0, 0, False
-        for model in self._chain:
-            if self._throttled_until.get(model, 0) > time.time():
-                continue
-            result = self._vision_call(model, img_b64)
-            if result and result[0] in LLM_GRADES:
-                grade, conf, ms, contains_child = result
-                used_model = model
-                break
+        used_model = ""
+
+        try:
+            r = vision_classify(PROMPT, "이 사진의 등급?", img_b64)
+            if r.grade in LLM_GRADES:
+                grade, conf, ms, contains_child = r.grade, r.confidence, r.elapsed_ms, r.contains_child
+                # raw에 model 힌트가 없으면 'qwen' 기본 (primary = Qwen VL)
+                used_model = r.raw.get("_model", "qwen")
+                if "groq" in used_model or "llama" in used_model:
+                    used_model = "groq"
+                else:
+                    used_model = "qwen"
+        except LLMGatewayError as e:
+            logger.warning("vision_classify 완전 실패: %s", e)
 
         final, final_src = _auto_grade(grade, sig)
         if final_src == "llm_ensemble":
             final_src = f"llm_{used_model}" if used_model else "llm_unknown"
 
         qwen_grade = grade if used_model == "qwen" else ""
-        qwen_conf = conf if used_model == "qwen" else 0
-        qwen_ms = ms if used_model == "qwen" else 0
+        qwen_conf  = conf  if used_model == "qwen" else 0
+        qwen_ms    = ms    if used_model == "qwen" else 0
         groq_grade = grade if used_model == "groq" else ""
-        groq_conf = conf if used_model == "groq" else 0
-        groq_ms = ms if used_model == "groq" else 0
+        groq_conf  = conf  if used_model == "groq" else 0
+        groq_ms    = ms    if used_model == "groq" else 0
 
         return Decision(
             grade=final,

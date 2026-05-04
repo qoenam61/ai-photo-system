@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import psycopg
 from dotenv import load_dotenv
 
-from core.client.groq_client import GroqClient
+from core.client.llm_gateway import text_generate
 
 load_dotenv()
 
@@ -63,11 +63,8 @@ class QueryResult:
 
 
 def parse_intent(question: str) -> dict:
-    if not os.getenv("GROQ_API_KEY"):
-        return {"intent": "general", "params": {}}
     try:
-        client = GroqClient()
-        resp = client.text(
+        resp = text_generate(
             system=INTENT_SYSTEM,
             user=question,
             temperature=0.1, max_tokens=120,
@@ -134,12 +131,8 @@ def answer_question(question: str) -> QueryResult:
 
     data = fetch_data(intent, params)
 
-    if not os.getenv("GROQ_API_KEY"):
-        return QueryResult(intent=intent, answer=str(data), data=data)
-
     try:
-        client = GroqClient()
-        resp = client.text(
+        resp = text_generate(
             system=ANSWER_SYSTEM,
             user=f"질문: {question}\n데이터: {json.dumps(data, ensure_ascii=False)}",
             temperature=0.4, max_tokens=200,

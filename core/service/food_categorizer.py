@@ -1,25 +1,24 @@
-"""음식 카테고리 분류 — Qwen 키워드 추출 + Groq 카테고리 정규화.
+"""음식 카테고리 분류 — LiteLLM 게이트웨이 통합.
 
 설계 §15.G: FOOD 등급 자산을 한식/일식/중식/양식/디저트/기타로 분류.
+v3.14: LiteLLM 게이트웨이 통합
 
 플로우:
-  1. Qwen Vision (로컬): 사진 → 음식 키워드 (e.g., "김치찌개와 밥")
-  2. Groq Text (외부, 사진 X): 키워드 → 카테고리 정규화
+  1. vision_classify (photo/classify → Qwen VL 7B): 사진 → 음식 키워드
+  2. text_generate (photo/text → Qwen 14B, 사진 X): 키워드 → 카테고리 정규화
 
-사진은 절대 Groq에 전송 X (v3.12 정책).
+사진은 절대 외부 전송 X (v3.12 정책 유지).
 """
 
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from core.client.groq_client import GroqClient
-from core.client.qwen_client import QwenClient
+from core.client.llm_gateway import vision_classify, text_generate
 from core.service.classifier import encode_image
 
 load_dotenv()
@@ -48,11 +47,10 @@ class FoodMeta:
     category: str = ""
 
 
-def extract_food_keyword(path: Path, qwen: QwenClient | None = None) -> str:
-    qwen = qwen or QwenClient()
+def extract_food_keyword(path: Path) -> str:
     img_b64 = encode_image(path)
     try:
-        r = qwen.vision(KEYWORD_PROMPT, "이 음식?", img_b64, num_predict=64)
+        r = vision_classify(KEYWORD_PROMPT, "이 음식?", img_b64, max_tokens=64)
         return str(r.raw.get("keyword", "")).strip()[:100]
     except Exception:
         return ""
@@ -61,11 +59,8 @@ def extract_food_keyword(path: Path, qwen: QwenClient | None = None) -> str:
 def categorize_keyword(keyword: str) -> str:
     if not keyword:
         return "기타"
-    if not os.getenv("GROQ_API_KEY"):
-        return _fallback_category(keyword)
     try:
-        client = GroqClient()
-        resp = client.text(
+        resp = text_generate(
             system=CATEGORY_SYSTEM,
             user=keyword,
             temperature=0.1, max_tokens=30,

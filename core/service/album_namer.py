@@ -1,11 +1,8 @@
-"""앨범명 자동 생성 — Groq Llama-3.3-70B (텍스트 전용).
+"""앨범명 자동 생성 — Qwen 14B via LiteLLM (텍스트 전용).
 
 설계 §15.A: 메타데이터(연도, 행사 종류, 위치, 인물 수) → 자연스러운 한국어 앨범명.
 **사진 데이터 절대 전송 금지** — 메타·태그·통계만.
-
-예시:
-  Input: {year: 2022, event: '결혼식', location: 'Seoul', count: 2028}
-  Output: "2022 봄 서울 결혼식 추억"
+v3.14: LiteLLM 게이트웨이 통합 (photo/text → Qwen 14B)
 
 Usage:
   from core.service.album_namer import suggest_album_name
@@ -15,11 +12,10 @@ Usage:
 from __future__ import annotations
 
 import json
-import os
 
 from dotenv import load_dotenv
 
-from core.client.groq_client import GroqClient
+from core.client.llm_gateway import text_generate
 
 load_dotenv()
 
@@ -60,10 +56,7 @@ def suggest_album_name(
     )
 
     try:
-        if not os.getenv("GROQ_API_KEY"):
-            return _fallback(payload)
-        client = GroqClient()
-        resp = client.text(
+        resp = text_generate(
             system=SYSTEM_PROMPT, user=user_text,
             temperature=0.4, max_tokens=80,
         )

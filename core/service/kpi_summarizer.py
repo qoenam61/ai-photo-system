@@ -14,7 +14,7 @@ from dataclasses import dataclass, asdict
 import psycopg
 from dotenv import load_dotenv
 
-from core.client.groq_client import GroqClient
+from core.client.llm_gateway import text_generate
 
 load_dotenv()
 
@@ -118,16 +118,13 @@ def collect_stats() -> WeeklyStats:
 
 
 def summarize(stats: WeeklyStats) -> str:
-    """Groq Llama 텍스트 요약. 실패 시 폴백 (단순 포맷)."""
-    if not os.getenv("GROQ_API_KEY"):
-        return _fallback(stats)
+    """Qwen 14B via LiteLLM 텍스트 요약. 실패 시 폴백 (단순 포맷)."""
     try:
-        client = GroqClient()
         user = (
             "다음 주간 통계를 한국어로 요약해줘 (사진 데이터 없음, 통계 메타만):\n"
             + json.dumps(asdict(stats), ensure_ascii=False, indent=2)
         )
-        resp = client.text(system=SYSTEM, user=user, temperature=0.5, max_tokens=300)
+        resp = text_generate(system=SYSTEM, user=user, temperature=0.5, max_tokens=300)
         text = resp.text.strip()
         if 50 <= len(text) <= 600:
             return text

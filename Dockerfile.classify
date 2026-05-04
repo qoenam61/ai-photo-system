@@ -26,12 +26,12 @@ RUN pip install --no-cache-dir \
 COPY core /app/core
 
 ENV PYTHONPATH=/app \
+    LITELLM_BASE_URL=http://host.docker.internal:4000 \
+    LITELLM_MASTER_KEY=local-litellm-key \
     OLLAMA_URL=http://host.docker.internal:11434/api/generate \
     PHOTO_DB_DSN="host=trading_postgres port=5432 dbname=trading_db user=trading_user password=RyIokQY7bV3y7SEsyFLu2Oa6" \
     STORAGE_PREFIX=/storage \
-    STORAGE_PREFIX_FROM=/Volumes/Immich-Storage \
-    VISION_MODEL_CHAIN=groq,qwen \
-    GROQ_VISION_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+    STORAGE_PREFIX_FROM=/Volumes/Immich-Storage
 
 EXPOSE 8000
 
