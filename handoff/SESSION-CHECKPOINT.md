@@ -7,9 +7,10 @@
 
 | 작업 | PID | 시작 | 완료 예상 | 로그 |
 |---|---|---|---|---|
-| **EVENT-L AI promote 4,290장** | 7714 | 2026-05-04 21:55 | ~04:00 (다음날) | `/tmp/promote_event_l.log` |
+| ~~EVENT-L AI promote 4,290장~~ | 7714 | 2026-05-04 21:55 | **완료 — 236장 promote (3,846 fail)** | `/tmp/promote_event_l.log` |
+| **EVENT-L promote v2 (잔여 4,054장)** | **42937** | 2026-05-05 ~22:00 | ~5h 후 | `/tmp/promote_event_l_v2.log` |
 
-> ⚠️ 백그라운드 promote 동작 중. 사용자 다른 명시 없는 한 그대로 두고 결과 확인.
+> 강화 정책 발효 후 (TRASH 정의 / camera_make / 장중 차단) 재실행. Groq 우선 0.72초/장.
 
 ## cleanup_queue: **정지 상태 유지** (도메인 안전)
 
