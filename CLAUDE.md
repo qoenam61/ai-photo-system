@@ -111,9 +111,13 @@ runbooks/          # 장애 복구 가이드
 ## 운영 컴포넌트 (현재 상태)
 
 - `photo-classify` 컨테이너 (8765 노출, trading_net) — 분류 HTTP 서비스
-- n8n `photo-auto-classify` 워크플로 — 5분 cron, /process_pending 호출
-- `maintenance.sh` (cron 30분, dev 모드) — albums/dedup/sync/health
-- `cron.dev` 적용 중. **운영 전환 시 `cron.prod` (03:00 daily) 로 교체**
+- n8n `photo-auto-classify` 워크플로 — 5분 cron, `/process_pending` 호출
+- 호스트 crontab (Phase 5 안정화 dev 모드, 2026-05-04~):
+  - `*/30 * * * * maintenance.sh` — 5단계: health, 앨범, dedup, Immich sync, **Layer 5 HDD cleanup**
+  - `*/30 * * * * memory_guard.sh` — 메모리 압력 감지·조치
+  - `0 4 * * * docker restart photo-classify` — 일일 재시작 (메모리 정리)
+  - `0 9 * * 0 weekly_kpi.py` — 주간 KPI (Groq + Telegram)
+- 운영 안정화 후 `cron.prod` (03:00 daily) 로 교체. dev↔prod 전환은 사용자 결정.
 
 ## v3.13 Cleanup 정책 (사용자 명시, 2026-05-03)
 
