@@ -94,7 +94,7 @@ def _parse_json(raw: str) -> dict:
         return {}
 
 
-# ── Vision 분류 (photo/classify → photo/classify-fb fallback) ──────────────
+# ── Vision 분류 (사용자 명시 2026-05-04 하이브리드: Groq 우선 → Qwen fallback) ─
 
 def vision_classify(
     system: str,
@@ -104,7 +104,11 @@ def vision_classify(
     timeout: float = 180.0,
     max_tokens: int = 128,
 ) -> VisionResponse:
-    """사진 분류 Vision 호출. LiteLLM → Qwen VL 7B, fallback → Groq."""
+    """사진 분류 Vision 호출. Groq Llama-4 Scout 우선 → Qwen VL 7B fallback.
+
+    근거: v3.13 VISION_MODEL_CHAIN 동적 라우팅 + 사용자 명시 2026-05-04
+          하이브리드 정책 (Groq 빠른 처리, throttle/실패 시 Qwen 로컬 fallback).
+    """
     messages = [
         {"role": "system", "content": system},
         {
@@ -119,9 +123,10 @@ def vision_classify(
         },
     ]
 
-    # 1차: Qwen VL (로컬)
+    # 1차: Groq (photo/classify-fb) — 빠른 처리
     try:
-        body = _chat("photo/classify", messages, temperature=0.0, max_tokens=max_tokens, timeout=timeout)
+        body = _chat("photo/classify-fb", messages, temperature=0.0,
+                     max_tokens=max_tokens, timeout=30.0)
         content = body["choices"][0]["message"]["content"]
         payload = _parse_json(content)
         return VisionResponse(
@@ -134,9 +139,10 @@ def vision_classify(
     except Exception:
         pass
 
-    # 2차 fallback: Groq (photo/classify-fb)
+    # 2차 fallback: Qwen VL (로컬) — Groq throttle/실패 시
     try:
-        body = _chat("photo/classify-fb", messages, temperature=0.0, max_tokens=max_tokens, timeout=30.0)
+        body = _chat("photo/classify", messages, temperature=0.0,
+                     max_tokens=max_tokens, timeout=timeout)
         content = body["choices"][0]["message"]["content"]
         payload = _parse_json(content)
         return VisionResponse(
