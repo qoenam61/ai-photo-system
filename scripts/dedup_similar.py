@@ -1,9 +1,11 @@
 """유사컷 강등 — EXIF 같은-초 (1초 단위) + 카메라 동일 그룹화.
 
 설계 §4 + 사용자 명시 정책 (2026-05-04 갱신):
-  - 그룹화: 같은 초 (1초 단위 bucket) + 같은 카메라 (사용자 명시: 초가 다르면 다른 사진)
+  - 그룹화: 같은 초 (1초 단위 bucket) + 같은 카메라
+    (사용자 명시: 초가 다르면 다른 사진 → 동일 그룹 X)
   - 그룹 보존 1장: 원래 grade 유지 (quality 최고)
-  - 그룹 dedup: EVENT-L 강등 (사용자 명시: TRASH 아닌 EVENT-L, 원본 보존)
+  - 그룹 dedup (rank 2+): TRASH 직접 강등 (사용자 명시: 전수 조사 + trash 처리)
+  - 24h grace 후 cleanup_run이 영구삭제 (verify PASS 게이트 유지)
 
 quality 점수 = laplacian_variance × file_size_bytes (높을수록 보존)
 
@@ -31,7 +33,7 @@ DB_DSN = (
 )
 
 DEDUP_FROM = ["EVENT", "EVENT-L", "BEST", "FOOD", "MEMORY+", "MEMORY-", "NORMAL"]
-DEMOTE_TARGET = "EVENT-L"
+DEMOTE_TARGET = "TRASH"
 
 
 def main() -> None:
