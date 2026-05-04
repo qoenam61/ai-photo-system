@@ -24,6 +24,9 @@ from pathlib import Path
 import psycopg
 from dotenv import load_dotenv
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.pipeline.layer5_album import apply_grade_change  # noqa: E402
+
 load_dotenv()
 
 DB_DSN = os.getenv(
@@ -160,6 +163,16 @@ def main() -> None:
                 WHERE asset_id = ANY(%s::uuid[])
             """, (promote_ids,))
         print(f"✅ {len(promote)}장 EVENT-L/auto_video 환원 완료")
+
+        # Layer 5 — 외장 HDD 등급 폴더 정합
+        ok = fail = 0
+        for aid in promote_ids:
+            success, _ = apply_grade_change(aid, "EVENT-L")
+            if success:
+                ok += 1
+            else:
+                fail += 1
+        print(f"  └ HDD move: ok={ok} fail/skip={fail}")
 
     print(f"✅ {len(keep_trash)}장 TRASH 유지 — cleanup_enqueue 후속 처리 가능")
 

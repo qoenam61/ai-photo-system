@@ -58,8 +58,13 @@ PYTHONPATH=. $POETRY run python scripts/sync_immich_albums.py 2>&1 | tail -20
 # 5. Layer 5 HDD cleanup — grace 만료 자산 영구삭제 (도메인 안전)
 # 정책: cleanup_queue grace_until <= NOW + verify PASS + 미보호. limit 100 / 1회.
 echo
-echo "[5/5] Layer 5 HDD cleanup"
+echo "[5/6] Layer 5 HDD cleanup"
 PYTHONPATH=. $POETRY run python scripts/cleanup_run.py --limit 100 --no-dry-run 2>&1 | tail -10
+
+# 6. 등급 폴더 정합 안전망 — DB ↔ HDD 어긋남 자동 정합 (idempotent)
+echo
+echo "[6/6] 등급 폴더 정합 (reconcile)"
+PYTHONPATH=. $POETRY run python scripts/reconcile_grade_folders.py 2>&1 | tail -8
 
 echo
 echo "=== Maintenance done $(date) ==="

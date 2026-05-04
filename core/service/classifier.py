@@ -100,8 +100,24 @@ def encode_image(path: Path, max_dim: int = 512) -> str:
     return base64.b64encode(data).decode()
 
 
+def exif_camera_make(path: Path) -> str:
+    """EXIF Make 태그 추출. 카메라 사진 판별용."""
+    try:
+        with Image.open(path) as pil:
+            exif = pil.getexif()
+            return str(exif.get(271, "") or "").strip()
+    except Exception:
+        return ""
+
+
 def opencv_signals(path: Path) -> Signals:
-    """OpenCV 기반 face_count, laplacian_variance, is_screenshot."""
+    """OpenCV 기반 face_count, laplacian_variance, is_screenshot.
+
+    is_screenshot 강화 (사용자 명시 2026-05-04):
+      - face_count > 0 → 절대 스크린샷 아님 (사람 사진)
+      - EXIF camera_make 있음 → 절대 스크린샷 아님 (카메라 사진)
+      - 그 외에만 종횡비/해상도 휴리스틱
+    """
     try:
         suffix = path.suffix.lower()
         if suffix in (".heic", ".heif"):
@@ -126,7 +142,12 @@ def opencv_signals(path: Path) -> Signals:
 
         h, w = img.shape[:2]
         ratio = h / w if w else 0
-        is_screenshot = (ratio > 1.7 and ratio < 2.3) or (h > 2400 and w < 1300)
+
+        camera = exif_camera_make(path)
+        if face_count > 0 or camera:
+            is_screenshot = False
+        else:
+            is_screenshot = (ratio > 1.7 and ratio < 2.3) or (h > 2400 and w < 1300)
 
         return Signals(
             face_count=face_count,

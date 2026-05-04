@@ -35,8 +35,8 @@ logger = logging.getLogger("photo-classify")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 from core.client.qwen_client import QwenClient
-from core.service.backup_verifier import verify_asset
-from core.service.classifier import Classifier, Decision
+from core.service.backup_verifier import verify_asset, _find_immich_asset, _resolve
+from core.service.classifier import Classifier, Decision, opencv_signals, exif_camera_make
 from core.service.cleanup_service import enqueue_cleanup
 
 
@@ -635,6 +635,50 @@ class EnqueueResponse(BaseModel):
     enqueued: int
     already_queued: int
     skipped: list[dict]
+
+
+class SignalsResponse(BaseModel):
+    asset_id: str
+    face_count: int
+    laplacian_variance: float
+    is_screenshot: bool
+    camera_make: str
+    width: int
+    height: int
+
+
+@app.get("/signals/{asset_id}", response_model=SignalsResponse)
+def signals(asset_id: str) -> SignalsResponse:
+    """asset의 OpenCV 신호값 + EXIF camera_make 재측정.
+
+    재분류 워커(scripts/reclassify_screenshot.py)에서 호출.
+    """
+    immich_id, immich_path = _find_immich_asset(asset_id, "")
+    if not immich_id:
+        raise HTTPException(404, "asset not found in immich")
+    p = _resolve(immich_path)
+    if not p.exists():
+        raise HTTPException(404, f"file missing: {p}")
+
+    sig = opencv_signals(p)
+    camera = exif_camera_make(p)
+
+    # width/height
+    try:
+        with __import__("PIL").Image.open(p) as pim:
+            w, h = pim.size
+    except Exception:
+        w, h = 0, 0
+
+    return SignalsResponse(
+        asset_id=asset_id,
+        face_count=sig.face_count,
+        laplacian_variance=sig.laplacian_variance,
+        is_screenshot=sig.is_screenshot,
+        camera_make=camera,
+        width=w,
+        height=h,
+    )
 
 
 @app.post("/cleanup_enqueue", response_model=EnqueueResponse)
