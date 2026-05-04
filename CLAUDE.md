@@ -50,11 +50,15 @@
 - **공유 자원**:
   - PostgreSQL 컨테이너 (사진 시스템은 `photo` schema만 사용)
   - Redis 컨테이너 (사진 시스템은 별도 key prefix)
-  - Docker 호스트
+  - Docker 호스트 + ollama (host.docker.internal:11434)
 - **금지 사항**:
   - 트레이딩 시스템 워크플로우·DB schema 변경 절대 금지
-  - 트레이딩 장중(09:00~15:30) 사진 시스템 LLM 가동 금지
+  - 트레이딩 장중(09:00~15:30 KST 평일) 사진 시스템 **로컬 Qwen LLM 가동 금지**
   - 트레이딩 메모리 baseline 영향 ≤ 5%
+- **enforcement** (코드 게이트):
+  - `core/client/llm_gateway.py:_is_trading_hours_kst()` — 평일 09:00-15:30 KST 시 Qwen fallback 차단
+  - 장중 Groq 실패 시 → `LLMGatewayError` → classifier `auto signals` fallback 사용 (ollama 호출 X)
+  - 환경변수 `TRADING_HOURS_LOCAL_BLOCK=0` 으로 일시 비활성 가능 (테스트/긴급)
 
 ## 코드 구조 (Clean Architecture)
 

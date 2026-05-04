@@ -96,6 +96,23 @@ def _parse_json(raw: str) -> dict:
 
 # ── Vision 분류 (사용자 명시 2026-05-04 하이브리드: Groq 우선 → Qwen fallback) ─
 
+
+def _is_trading_hours_kst() -> bool:
+    """평일 09:00-15:30 KST = 트레이딩 장중. 로컬 LLM 보호 게이트.
+
+    환경변수 TRADING_HOURS_LOCAL_BLOCK=0 으로 비활성 가능 (테스트/긴급).
+    """
+    import datetime
+    if os.getenv("TRADING_HOURS_LOCAL_BLOCK", "1") == "0":
+        return False
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    now = datetime.datetime.now(kst)
+    if now.weekday() >= 5:  # 토(5), 일(6)
+        return False
+    minutes = now.hour * 60 + now.minute
+    return 9 * 60 <= minutes <= 15 * 60 + 30
+
+
 def vision_classify(
     system: str,
     prompt: str,
@@ -108,6 +125,10 @@ def vision_classify(
 
     근거: v3.13 VISION_MODEL_CHAIN 동적 라우팅 + 사용자 명시 2026-05-04
           하이브리드 정책 (Groq 빠른 처리, throttle/실패 시 Qwen 로컬 fallback).
+
+    장중(평일 09:00-15:30 KST) 보호:
+      Groq 실패 시 Qwen 로컬 fallback 차단 — 트레이딩 시스템 ollama
+      자원 보호. 차단 시 LLMGatewayError 던지면 호출자가 auto 신호 fallback.
     """
     messages = [
         {"role": "system", "content": system},
@@ -140,6 +161,12 @@ def vision_classify(
         pass
 
     # 2차 fallback: Qwen VL (로컬) — Groq throttle/실패 시
+    # 장중 보호: Qwen 로컬 호출 차단 (트레이딩 ollama 자원 보호)
+    if _is_trading_hours_kst():
+        raise LLMGatewayError(
+            "vision_classify Qwen fallback blocked (trading hours, "
+            "TRADING_HOURS_LOCAL_BLOCK=1)"
+        )
     try:
         body = _chat("photo/classify", messages, temperature=0.0,
                      max_tokens=max_tokens, timeout=timeout)
