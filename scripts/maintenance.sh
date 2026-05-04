@@ -13,6 +13,10 @@
 #   5. 통계 출력
 
 set -e
+# macOS launchd cron의 기본 PATH는 /usr/bin:/bin 만이라 docker 등 미발견.
+# Homebrew + GNU 도구 명시.
+export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
 cd /Users/jw-home/Work/photo_system/ai-photo-system
 
 LOG=scripts/_inventory/maintenance_$(date +%Y%m%d).log
