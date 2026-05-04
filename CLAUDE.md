@@ -116,12 +116,16 @@ runbooks/          # 장애 복구 가이드
 
 - `photo-classify` 컨테이너 (8765 노출, trading_net) — 분류 HTTP 서비스
 - n8n `photo-auto-classify` 워크플로 — 5분 cron, `/process_pending` 호출
-- 호스트 crontab (Phase 5 안정화 dev 모드, 2026-05-04~):
-  - `*/30 * * * * maintenance.sh` — 5단계: health, 앨범, dedup, Immich sync, **Layer 5 HDD cleanup**
+- 호스트 crontab (운영 모드, 2026-05-05~):
+  - `*/30 * * * * maintenance.sh` — health, 앨범, dedup, Immich sync, Layer 5 cleanup, reconcile, view symlink (DB/파일 IO만, LLM 호출 X)
   - `*/30 * * * * memory_guard.sh` — 메모리 압력 감지·조치
   - `0 4 * * * docker restart photo-classify` — 일일 재시작 (메모리 정리)
   - `0 9 * * 0 weekly_kpi.py` — 주간 KPI (Groq + Telegram)
-- 운영 안정화 후 `cron.prod` (03:00 daily) 로 교체. dev↔prod 전환은 사용자 결정.
+- n8n 워크플로:
+  - `photo-auto-classify` cron: **`0 3 * * *` (매일 03:00 KST 1회)** — LLM 분류 트레이딩 자원 보호
+- 정책 분리 (사용자 결정 2026-05-05):
+  - **분류 (LLM 호출) = 03:00** — 트레이딩 자원 보호 + Phase 5 정책 일관
+  - **maintenance (DB/파일 IO) = 30분** — 즉시성 유지 (view 정합, Album 동기화)
 
 ## v3.13 Cleanup 정책 (사용자 명시, 2026-05-03)
 
