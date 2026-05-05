@@ -20,9 +20,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import io
 import os
 import subprocess
+import time
 from pathlib import Path
 
 import psycopg
@@ -52,7 +54,7 @@ def fetch_db_stats() -> dict:
             SELECT
               (SELECT COUNT(*) FROM photo.classification),
               (SELECT COUNT(*) FROM photo.cleanup_queue WHERE processed_at IS NOT NULL),
-              (SELECT COUNT(*) FROM photo.cleanup_audit WHERE success)
+              (SELECT COUNT(*) FROM photo.cleanup_audit WHERE success AND device='hdd')
         """)
         classified, processed, audit_ok = cur.fetchone()
 
@@ -159,12 +161,22 @@ def main() -> None:
             print(f"  {i}. {issue}")
 
         if args.telegram:
-            body = "\n".join(f"- {i}" for i in issues)
-            subprocess.run(
-                ["bash", "scripts/notify_telegram.sh",
-                 "Photo 무결성 이상 감지", body],
-                check=False,
-            )
+            # idempotent flag — 같은 이상 7일 내 중복 알림 X (NSC-2)
+            issue_hash = hashlib.md5(
+                "\n".join(sorted(issues)).encode()
+            ).hexdigest()[:12]
+            flag = Path(f"scripts/_inventory/integrity_alert_{issue_hash}.flag")
+            now = time.time()
+            if flag.exists() and (now - flag.stat().st_mtime) < 7 * 86400:
+                print(f"  (같은 이상 7일 내 알림됨 — skip: {flag.name})")
+            else:
+                body = "\n".join(f"- {i}" for i in issues)
+                subprocess.run(
+                    ["bash", "scripts/notify_telegram.sh",
+                     "Photo 무결성 이상 감지", body],
+                    check=False,
+                )
+                flag.touch()
 
 
 if __name__ == "__main__":

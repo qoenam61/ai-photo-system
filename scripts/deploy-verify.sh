@@ -45,14 +45,15 @@ done
 ollama_ok=$(curl -sf http://127.0.0.1:11434/api/tags 2>/dev/null | grep -c qwen2.5vl)
 if [ "$ollama_ok" -gt 0 ]; then ok "ollama" "qwen2.5vl loaded"; else warn "ollama" "qwen2.5vl 미감지"; fi
 
-# 5. DB 정합
-read -r classified queued processed audit_ok reclaimed_mb < <(docker exec -i trading_postgres psql -U trading_user -d trading_db -t -A -F ' ' -c "
+# 5. DB 정합 (device별 분리 — NSC-10)
+read -r classified queued processed hdd_ok mac_ok hdd_mb < <(docker exec -i trading_postgres psql -U trading_user -d trading_db -t -A -F ' ' -c "
 SELECT
   (SELECT COUNT(*) FROM photo.classification),
   (SELECT COUNT(*) FROM photo.cleanup_queue),
   (SELECT COUNT(*) FROM photo.cleanup_queue WHERE processed_at IS NOT NULL),
-  (SELECT COUNT(*) FROM photo.cleanup_audit WHERE success),
-  (SELECT COALESCE(SUM(reclaimed_bytes),0)/1024/1024 FROM photo.cleanup_audit WHERE success);
+  (SELECT COUNT(*) FROM photo.cleanup_audit WHERE success AND device='hdd'),
+  (SELECT COUNT(*) FROM photo.cleanup_audit WHERE success AND device='mac-photos'),
+  (SELECT COALESCE(SUM(reclaimed_bytes),0)/1024/1024 FROM photo.cleanup_audit WHERE success AND device='hdd');
 " 2>/dev/null)
 
 if [ -n "${classified:-}" ] && [ "$classified" -ge 1 ]; then
@@ -61,7 +62,8 @@ else
   fail "db:classification" "rows=${classified:-?}"
 fi
 ok "db:cleanup_queue" "queued=$queued processed=$processed"
-ok "db:cleanup_audit" "success=$audit_ok reclaimed=${reclaimed_mb}MB"
+ok "db:cleanup_audit:hdd" "success=$hdd_ok reclaimed=${hdd_mb}MB"
+ok "db:cleanup_audit:mac" "success=$mac_ok (Mac Photos 휴지통 이동, 디스크 회수 X)"
 
 # 6. cleanup_audit success/failed 정합
 audit_fail=$(docker exec -i trading_postgres psql -U trading_user -d trading_db -t -A -c \

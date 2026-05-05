@@ -90,16 +90,16 @@ else
   fail "db:classification_count" "$classified_db (분류 미완)"
 fi
 
-# 8. cleanup_queue.processed = cleanup_audit.success 정합
-read -r processed audit_ok < <(docker exec -i trading_postgres psql -U trading_user -d trading_db -t -A -F ' ' -c "
+# 8. cleanup_queue.processed = cleanup_audit.success(hdd) 정합 (device별 분리, NSC-10)
+read -r processed audit_hdd < <(docker exec -i trading_postgres psql -U trading_user -d trading_db -t -A -F ' ' -c "
 SELECT
   (SELECT COUNT(*) FROM photo.cleanup_queue WHERE processed_at IS NOT NULL),
-  (SELECT COUNT(*) FROM photo.cleanup_audit WHERE success);
+  (SELECT COUNT(*) FROM photo.cleanup_audit WHERE success AND device='hdd');
 " 2>/dev/null)
-if [ "$processed" = "$audit_ok" ]; then
-  ok "db:queue_audit_consistency" "processed=$processed = audit_success=$audit_ok"
+if [ "$processed" = "$audit_hdd" ]; then
+  ok "db:queue_audit_consistency" "processed=$processed = hdd_success=$audit_hdd"
 else
-  fail "db:queue_audit_consistency" "processed=$processed != audit_success=$audit_ok"
+  fail "db:queue_audit_consistency" "processed=$processed != hdd_success=$audit_hdd"
 fi
 
 echo

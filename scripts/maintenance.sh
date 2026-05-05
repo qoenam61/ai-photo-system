@@ -2,7 +2,7 @@
 # 유지보수 cron — health, 앨범, dedup, Immich sync, Layer 5 cleanup, reconcile, view.
 # 30분 cron (Phase 5 안정화 dev 모드).
 #
-# 단계 실패 추적 (run_step) + 종합 Telegram 알림.
+# 단계 실패 추적 (run_step + pipefail) + 종합 Telegram 알림.
 
 set -u
 export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
@@ -16,6 +16,7 @@ exec > >(tee -a "$LOG") 2>&1
 POETRY=/Users/jw-home/.local/bin/poetry
 FAILED_STEPS=()
 
+# bash -c 안에서 pipe 실패 추적 위해 항상 set -o pipefail 추가 (NSC-3 수정)
 run_step() {
   local step_name="$1"
   shift
@@ -47,42 +48,49 @@ run_step "[1] monitor_iphone_uploads" \
 echo
 echo "[2/8] 추억앨범 갱신"
 run_step "[2] build_albums" bash -c "
+  set -o pipefail
   PYTHONPATH=. $POETRY run python scripts/build_albums.py 2>&1 | tail -25
 "
 
 echo
 echo "[3/8] CLIP 앨범 dedup"
 run_step "[3] dedup_album_clip" bash -c "
+  set -o pipefail
   PYTHONPATH=. $POETRY run python scripts/dedup_album_clip.py --threshold 0.97 2>&1 | tail -15
 "
 
 echo
 echo "[4/8] Immich Album 동기화"
 run_step "[4] sync_immich_albums" bash -c "
+  set -o pipefail
   PYTHONPATH=. $POETRY run python scripts/sync_immich_albums.py 2>&1 | tail -20
 "
 
 echo
 echo "[5/8] 신규 TRASH cleanup_queue 자동 등록 (grace 7일)"
 run_step "[5] auto_enqueue_trash" bash -c "
+  set -o pipefail
   PYTHONPATH=. $POETRY run python scripts/auto_enqueue_trash.py 2>&1 | tail -5
 "
 
 echo
 echo "[6/8] Layer 5 HDD cleanup (grace 만료 + verify PASS만)"
 run_step "[6] cleanup_run" bash -c "
+  set -o pipefail
   PYTHONPATH=. $POETRY run python scripts/cleanup_run.py --limit 100 --no-dry-run 2>&1 | tail -10
 "
 
 echo
 echo "[7/8] 등급 폴더 정합 (reconcile)"
 run_step "[7] reconcile_grade_folders" bash -c "
+  set -o pipefail
   PYTHONPATH=. $POETRY run python scripts/reconcile_grade_folders.py 2>&1 | tail -8
 "
 
 echo
 echo "[8/8] 등급별 view symlink 정합"
 run_step "[8] build_grade_views" bash -c "
+  set -o pipefail
   PYTHONPATH=. $POETRY run python scripts/build_grade_views.py 2>&1 | tail -10
 "
 

@@ -134,8 +134,8 @@ def main() -> None:
             cnt = len(list(d.iterdir()))
             print(f"  {g:8s}: {cnt} symlinks")
 
-    # fail 임계 초과 시 Telegram 알림 (MC-5)
-    if fail > 50:
+    # fail 임계 초과 시 Telegram 알림 (MC-5, 임계 500 — NSM-4)
+    if fail > 500:
         try:
             subprocess.run(
                 ["bash", "scripts/notify_telegram.sh",
