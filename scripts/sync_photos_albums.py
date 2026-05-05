@@ -1,20 +1,22 @@
-"""Mac Photos.app 8개 등급 앨범 자동 동기.
+"""Mac Photos.app 4개 등급 앨범 자동 동기 (iCloud 백업 대상만).
 
-사용자 명시 (2026-05-05): Mac Photos.app에 등급별 Manual Album 자동 생성 +
-사진 추가. iCloud 동기로 iPhone/iPad에 자동 표시.
+사용자 명시 (2026-05-05 정정): iCloud 백업 = 고퀄 등급만.
+  - BEST: 일반 인물 / 풍경·사물 좋은 컷
+  - EVENT: 얼굴 보이는 사람 3+ 또는 행사 (웨딩/돌잔치/생일 등)
+  - EVENT-L: Long (영상 ≥3초) + dedup_demoted (결혼식 영상 등 보존 가치)
+  - MEMORY+: 사람 + 화질 OK
+
+제외: FOOD, MEMORY-, NORMAL, TRASH (HDD 보존만, iCloud 동기 X)
+TRASH 정리는 scripts/cleanup_photos_mac.py가 독립적으로 처리.
 
 흐름:
-  1. photo.classification 자산 조회 (sync 미완료)
+  1. photo.classification 자산 조회 (sync 미완료, 4등급만)
   2. Immich (originalFileName + fileCreatedAt) 매핑
   3. osxphotos PhotosDB → filename + date 매칭 → photo.uuid
-  4. tools/photos_cli album-add "{ALBUM}" UUID... batch 호출
+  4. AppleScript Photos.app album add (배치 1회)
   5. DB photo.classification.synced_to_mac_album_at 갱신 (idempotent)
 
-8개 앨범 (CLAUDE.md "iCloud 보존 등급"):
-  ⭐ EVENT, ⭐ EVENT-L, ✦ BEST, 🍽 FOOD,
-  ◆ MEMORY+, ◇ MEMORY-, ○ NORMAL, 🗑 TRASH
-
-trigger: launchd `com.photo.sync-albums` (매일 03:35, cleanup 후 docker restart 전)
+trigger: launchd `com.photo.sync-albums` (매일 03:35)
 
 Usage:
   PYTHONPATH=. poetry run python scripts/sync_photos_albums.py [--dry-run] [--limit N] [--all]
@@ -53,23 +55,25 @@ DATE_TOL = timedelta(seconds=2)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PHOTOS_CLI = PROJECT_ROOT / "tools" / "photos_cli"
 
+# iCloud 백업 대상 4등급만 동기 (사용자 명시 2026-05-05 정정).
+# 제외 등급(FOOD/MEMORY-/NORMAL/TRASH)은 HDD 보존 only — iCloud 한도 절감.
 GRADE_ALBUMS = {
     "EVENT":   "⭐ EVENT",
     "EVENT-L": "⭐ EVENT-L",
     "BEST":    "✦ BEST",
-    "FOOD":    "🍽 FOOD",
     "MEMORY+": "◆ MEMORY+",
-    "MEMORY-": "◇ MEMORY-",
-    "NORMAL":  "○ NORMAL",
-    "TRASH":   "🗑 TRASH",
 }
 
 
 def fetch_targets(only_unsynced: bool, limit: int) -> list[tuple]:
-    """동기 대상: (asset_id, grade).
+    """동기 대상: (asset_id, grade) — iCloud 백업 4등급만.
 
-    cleanup_audit success 자산 제외 (이미 정리됨 — Immich에서 deletedAt 표시).
+    필터:
+      - grade IN GRADE_ALBUMS (BEST/EVENT/EVENT-L/MEMORY+)
+      - cleanup_audit success 자산 제외 (이미 정리됨)
+      - only_unsynced=True 시 미동기 자산만
     """
+    grades = list(GRADE_ALBUMS.keys())
     where_unsynced = ""
     if only_unsynced:
         where_unsynced = ("AND (synced_to_mac_album_at IS NULL OR "
@@ -77,17 +81,18 @@ def fetch_targets(only_unsynced: bool, limit: int) -> list[tuple]:
     sql = f"""
         SELECT c.asset_id::text, c.grade
         FROM photo.classification c
-        WHERE NOT EXISTS (
+        WHERE c.grade = ANY(%s)
+          AND NOT EXISTS (
             SELECT 1 FROM photo.cleanup_audit a
             WHERE a.asset_id = c.asset_id AND a.success
-        )
+          )
         {where_unsynced}
         ORDER BY c.classified_at DESC
     """
     if limit > 0:
         sql += f" LIMIT {limit}"
     with psycopg.connect(DB_DSN) as conn, conn.cursor() as cur:
-        cur.execute(sql)
+        cur.execute(sql, (grades,))
         return cur.fetchall()
 
 
@@ -151,26 +156,21 @@ def album_add_batch(album_name: str, uuids: list[str]) -> dict:
     # AppleScript list literal — UUID는 하이픈만 들어가서 안전
     id_list = ", ".join(f'"{pid}"' for pid in photo_ids)
 
+    # AppleScript 최적화: `every media item whose id is in {...}` 한 번에 검색
+    # 이전 repeat-loop O(N×M) → O(N) 단일 search
     osascript_code = f'''
-with timeout of 600 seconds
+with timeout of 1800 seconds
   tell application "Photos"
     set targetIDs to {{{id_list}}}
-    set photosFound to {{}}
-    repeat with pid in targetIDs
-      try
-        set p to (first media item whose id is pid)
-        copy p to end of photosFound
-      end try
-    end repeat
+    set photosFound to (every media item whose id is in targetIDs)
 
-    -- 앨범 찾기 또는 생성 (Photos.app: `make new album named "..."`)
+    -- 앨범 찾기 또는 생성
     try
       set targetAlbum to album "{album_name}"
     on error
       set targetAlbum to make new album named "{album_name}"
     end try
 
-    -- 추가
     if (count of photosFound) > 0 then
       add photosFound to targetAlbum
     end if
