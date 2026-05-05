@@ -142,29 +142,30 @@ def find_mac_uuid(idx: dict, filename: str, ts: datetime) -> str | None:
     return None
 
 
-def album_add_batch(album_name: str, uuids: list[str]) -> dict:
-    """AppleScript Photos.app으로 앨범 추가 (이미 권한 부여됨).
+BATCH_CHUNK = 200  # AppleScript 안정성 — 한 호출당 ID 수
 
-    osxphotos UUID는 PHAsset.localIdentifier 접미 X.
-    AppleScript Photos.app `id` property는 `<UUID>/L0/001` 형식이므로 접미 추가.
-    """
+
+def _album_add_chunk(album_name: str, uuids: list[str]) -> tuple[int, str | None]:
+    """AppleScript chunk 1개 호출. (added, error)."""
     if not uuids:
-        return {"processed": 0}
+        return 0, None
 
-    # AppleScript는 단일 호출이 효율 — JSON 응답 형식
     photo_ids = [f"{u}/L0/001" for u in uuids]
-    # AppleScript list literal — UUID는 하이픈만 들어가서 안전
     id_list = ", ".join(f'"{pid}"' for pid in photo_ids)
 
-    # AppleScript 최적화: `every media item whose id is in {...}` 한 번에 검색
-    # 이전 repeat-loop O(N×M) → O(N) 단일 search
+    # `media item id "X"` 직접 조회 — O(1) 룩업.
+    # `whose id is in {...}` 는 Photos.app이 specifier 유형 변환 거부 (-1700).
     osascript_code = f'''
-with timeout of 1800 seconds
+with timeout of 600 seconds
   tell application "Photos"
-    set targetIDs to {{{id_list}}}
-    set photosFound to (every media item whose id is in targetIDs)
+    set photosFound to {{}}
+    repeat with theID in {{{id_list}}}
+      try
+        set p to media item id theID
+        set end of photosFound to p
+      end try
+    end repeat
 
-    -- 앨범 찾기 또는 생성
     try
       set targetAlbum to album "{album_name}"
     on error
@@ -182,17 +183,35 @@ end timeout
     try:
         r = subprocess.run(
             ["osascript", "-e", osascript_code],
-            capture_output=True, text=True, timeout=700,
+            capture_output=True, text=True, timeout=620,
         )
         if r.returncode != 0:
-            return {"processed": 0,
-                    "error": f"applescript:{r.stderr.strip()[:120]}"}
-        added = int(r.stdout.strip() or 0)
-        return {"processed": added, "not_found": len(uuids) - added}
+            return 0, f"applescript:{r.stderr.strip()[:120]}"
+        return int(r.stdout.strip() or 0), None
     except subprocess.TimeoutExpired:
-        return {"processed": 0, "error": "timeout"}
+        return 0, "timeout"
     except Exception as e:
-        return {"processed": 0, "error": f"{type(e).__name__}:{e}"}
+        return 0, f"{type(e).__name__}:{e}"
+
+
+def album_add_batch(album_name: str, uuids: list[str]) -> dict:
+    """앨범 추가 — BATCH_CHUNK 단위로 분할 호출 (AppleScript list literal 한계 우회)."""
+    if not uuids:
+        return {"processed": 0}
+
+    total_added = 0
+    last_err: str | None = None
+    for i in range(0, len(uuids), BATCH_CHUNK):
+        chunk = uuids[i:i + BATCH_CHUNK]
+        added, err = _album_add_chunk(album_name, chunk)
+        total_added += added
+        if err:
+            last_err = err
+
+    out: dict = {"processed": total_added, "not_found": len(uuids) - total_added}
+    if last_err:
+        out["error"] = last_err
+    return out
 
 
 def mark_synced(asset_ids: list[str]) -> None:
