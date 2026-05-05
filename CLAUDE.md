@@ -184,7 +184,7 @@ iCloud Photos 백업 = **고퀄 등급만** (BEST/EVENT/EVENT-L/MEMORY+ 4개).
 |---|---|---|
 | **BEST** | 보존가치 高. 얼굴 명확한 일반 인물 사진 / 풍경·사물 좋은 컷 (사람 등장 시 얼굴 가시성 필수) | LLM=BEST (사람 사진은 얼굴 명확히 식별 가능 시만) |
 | **EVENT** | 행사·이벤트 사진. 얼굴 보이는 사람 3+ 또는 행사 키워드 (사용자 명시: 얼굴 명확 필수) | LLM=EVENT (얼굴 보이는 사람 3+ OR 얼굴 보이는 사람 + 케이크·꽃다발·드레스·한복·웨딩·돌잔치·생일·졸업·기념일·신생아·만삭·100일·돌·칠순) |
-| **EVENT-L** | 행사 영상 또는 행사 burst dedup 강등. EVENT의 long-form/낮은 우선 보존 | 영상 ≥3초 (`auto_video`) / EVENT 그룹 dedup 강등 (`dedup_demoted`) / 사용자 명시 환원 자산 (`restored_from_dedup`) |
+| **EVENT-L** | 행사 영상 또는 행사 burst dedup 강등. EVENT의 long-form/낮은 우선 보존 | 영상 ≥3초 (`auto_video`) / EVENT 그룹 dedup 강등 (`dedup_demoted` / `dedup_demoted_5s`) / 사용자 명시 환원 자산 (`restored_from_dedup`) |
 | **FOOD** | 음식 사진. 음식이 화면 50% 이상 | LLM=FOOD |
 | **MEMORY+** | 추억 (사람 + 화질 OK). LLM 미평가 시 auto 신호 기반 | `face_count > 0 AND laplacian ≥ 100` (`auto_quality_ok`/`reclass_face`) |
 | **MEMORY-** | 추억 (사람 + 흐림). 단순 흐림은 보존 (TRASH 아님) | `face_count > 0 AND laplacian < 100` (`auto_blurry`/`reclass_face_blurry`) |
@@ -290,10 +290,29 @@ iPhone 자산(`immich-uploads/`) + legacy 자산(`immich-media/library/{GRADE}/`
 | 14일 dry-run 게이트 | `min_age_days=14` | `min_age_days=0` (2026-05-03) |
 | TRASH 30일 HDD grace | 30일 | **7일** (사용자 명시 확대 2026-05-05) |
 | `auto_short_video` 임계 | 5초 미만 | **3초 미만** (2026-05-04) |
+| `dedup_similar` window | 1초 + TRASH 강등 | **5초 + 하위등급 보관** (사용자 명시 2026-05-05) |
 | backup verify 4중 검증 | 필수 | 필수 (우회 X) |
 | 시범 limit (`progressive=True`) | 20/100/200 | 20/100/무제한 |
 | feedback_protect 자산 제외 | 필수 | 필수 (우회 X) |
 | iPhone 보존 정책 (BEST/EVENT/MEMORY+/contains_child) | 필수 | 필수 (우회 X) |
+
+### dedup 5초 burst 정책 (사용자 명시 2026-05-05)
+
+같은 카메라 5초 이내 burst → 베스트컷(`laplacian × file_size` 1위) 1장만 등급 유지, 나머지 하위등급으로 강등 보관 (TRASH 아님).
+
+| 원 등급 | 강등 대상 |
+|---|---|
+| BEST | MEMORY+ (iCloud 보존 유지) |
+| EVENT | EVENT-L (iCloud 보존 유지) |
+| EVENT-L | MEMORY+ |
+| MEMORY+ | MEMORY- (HDD only) |
+| FOOD | MEMORY- |
+| MEMORY- | NORMAL |
+| NORMAL | NORMAL (변화 X) |
+
+- `restored_from_dedup` 자산은 사용자 의도적 환원 → 재 dedup 제외
+- `dedup_demoted_*` 자산은 이미 처리됨 → 제외 (재처리 방지)
+- grade_source = `dedup_demoted_5s` 마킹 (1초 정책 `dedup_demoted`와 구분)
 
 > 정식 TC: `wiki/03-pdca/active/report/TC-phase5-fastlane.md`
 

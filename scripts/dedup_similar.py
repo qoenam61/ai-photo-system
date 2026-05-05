@@ -1,13 +1,23 @@
-"""유사컷 강등 — EXIF 같은-초 (1초 단위) + 카메라 동일 그룹화.
+"""유사컷 강등 — 5초 window burst dedup + 하위등급 보관 (사용자 명시 2026-05-05).
 
-설계 §4 + 사용자 명시 정책 (2026-05-04 갱신):
-  - 그룹화: 같은 초 (1초 단위 bucket) + 같은 카메라
-    (사용자 명시: 초가 다르면 다른 사진 → 동일 그룹 X)
-  - 그룹 보존 1장: 원래 grade 유지 (quality 최고)
-  - 그룹 dedup (rank 2+): TRASH 직접 강등 (사용자 명시: 전수 조사 + trash 처리)
-  - 24h grace 후 cleanup_run이 영구삭제 (verify PASS 게이트 유지)
+사용자 명시 정책 변경 (2026-05-05):
+  - window 1초 → **5초** (5초 이내 burst는 동일 장면)
+  - demote target: TRASH → **하위등급 강등 보관** (삭제 X, 등급만 한 단계 아래)
+  - 그룹화: 5초 bucket + 같은 카메라 (등급 무시)
+    → BEST_a + EVENT_b가 같은 시점·카메라면 같은 장면으로 처리
+  - 베스트컷 = laplacian × file_size 1위 → 원래 등급 유지
+  - 나머지 = DEMOTE 매핑 따라 한 단계 아래로 강등
 
-quality 점수 = laplacian_variance × file_size_bytes (높을수록 보존)
+DEMOTE 매핑:
+  BEST    → MEMORY+   (iCloud 보존 유지, 한 단계 아래)
+  EVENT   → EVENT-L   (행사 long/secondary, iCloud)
+  EVENT-L → MEMORY+
+  MEMORY+ → MEMORY-   (HDD 보존)
+  FOOD    → MEMORY-
+  MEMORY- → NORMAL
+  NORMAL  → NORMAL    (변화 X — 이미 최하위 비-trash)
+
+이미 dedup_demoted_* 처리된 자산은 재처리 X.
 
 Usage:
   PYTHONPATH=. poetry run python scripts/dedup_similar.py [--dry-run] [--window-seconds N]
@@ -18,6 +28,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from collections import Counter
 
 import psycopg
 from dotenv import load_dotenv
@@ -32,64 +43,83 @@ DB_DSN = (
     "user=trading_user password=RyIokQY7bV3y7SEsyFLu2Oa6"
 )
 
-DEDUP_FROM = ["EVENT", "EVENT-L", "BEST", "FOOD", "MEMORY+", "MEMORY-", "NORMAL"]
-DEMOTE_TARGET = "TRASH"
+DEDUP_FROM = ["BEST", "EVENT", "EVENT-L", "MEMORY+", "FOOD", "MEMORY-", "NORMAL"]
+
+DEMOTE = {
+    "BEST":    "MEMORY+",
+    "EVENT":   "EVENT-L",
+    "EVENT-L": "MEMORY+",
+    "MEMORY+": "MEMORY-",
+    "FOOD":    "MEMORY-",
+    "MEMORY-": "NORMAL",
+    "NORMAL":  "NORMAL",
+}
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="DB 변경 X, 통계만")
-    parser.add_argument("--window-seconds", type=int, default=1,
-                        help="시각 그룹화 단위(초). 1=정확히 같은 초")
+    parser.add_argument("--window-seconds", type=int, default=5,
+                        help="burst 그룹화 단위(초). 사용자 명시 기본 5초")
     args = parser.parse_args()
 
     grade_filter = ", ".join(f"'{g}'" for g in DEDUP_FROM)
     conn = psycopg.connect(DB_DSN, autocommit=True)
     with conn.cursor() as cur:
+        # 그룹화: 5초 bucket + 같은 카메라 (등급 무시 — 같은 장면 가정)
+        # 이미 dedup_demoted_* 처리된 자산은 제외 (재처리 방지)
         cur.execute(f"""
             WITH bucketed AS (
               SELECT
                 asset_id,
                 grade,
+                grade_source,
                 exif_datetime,
-                camera_make,
-                camera_model,
+                COALESCE(camera_make, '') AS make,
+                COALESCE(camera_model, '') AS model,
                 file_size_bytes,
                 COALESCE(laplacian_variance, 0) AS lap,
                 FLOOR(EXTRACT(EPOCH FROM exif_datetime) / {args.window_seconds}) AS time_bucket
               FROM photo.classification
               WHERE exif_datetime IS NOT NULL
                 AND grade IN ({grade_filter})
+                AND COALESCE(grade_source, '') NOT LIKE 'dedup_demoted%%'
+                AND COALESCE(grade_source, '') != 'restored_from_dedup'
             ),
             ranked AS (
               SELECT *,
                 ROW_NUMBER() OVER (
-                  PARTITION BY grade, camera_make, camera_model, time_bucket
+                  PARTITION BY make, model, time_bucket
                   ORDER BY (lap * file_size_bytes) DESC NULLS LAST,
                            file_size_bytes DESC
                 ) AS rn,
                 COUNT(*) OVER (
-                  PARTITION BY grade, camera_make, camera_model, time_bucket
+                  PARTITION BY make, model, time_bucket
                 ) AS group_size
               FROM bucketed
             )
-            SELECT grade, asset_id, group_size, rn
+            SELECT grade, asset_id::text, group_size, rn
             FROM ranked
             WHERE rn > 1 AND group_size > 1
         """)
         candidates = cur.fetchall()
 
-    print(f"📊 dedup 후보 ({DEMOTE_TARGET} 강등 대상): {len(candidates)} 자산")
+    print(f"📊 5초 burst dedup 후보 (rank≥2, 강등 대상): {len(candidates)} 자산")
 
-    by_grade: dict[str, int] = {}
+    transitions: Counter[tuple[str, str]] = Counter()
+    no_demote = 0
     for grade, _, _, _ in candidates:
-        by_grade[grade] = by_grade.get(grade, 0) + 1
+        target = DEMOTE.get(grade)
+        if target is None or target == grade:
+            no_demote += 1
+            continue
+        transitions[(grade, target)] += 1
 
-    print(f"\n원래 등급별 분포 (보존 1장 외):")
-    for g in DEDUP_FROM:
-        if g in by_grade:
-            mark = "→ 동급유지" if g == DEMOTE_TARGET else f"→ {DEMOTE_TARGET} 강등"
-            print(f"  {g:8s} {mark}: {by_grade[g]:5d} 장")
+    print("\n등급 전이 (베스트컷 1장 외):")
+    for (old, new), n in sorted(transitions.items(), key=lambda x: -x[1]):
+        print(f"  {old:8} → {new:8} : {n}")
+    if no_demote:
+        print(f"  변화 없음 (이미 최하위 또는 매핑 X): {no_demote}")
 
     if args.dry_run:
         print("\n💡 dry-run — DB 변경 X")
@@ -98,31 +128,34 @@ def main() -> None:
     if not candidates:
         return
 
-    asset_ids = [a for _, a, _, _ in candidates]
-    print(f"\n실제 {DEMOTE_TARGET} 강등 적용 중 ({len(asset_ids)}장)...")
-    with conn.cursor() as cur:
-        cur.execute(
-            """UPDATE photo.classification
-               SET grade = %s,
-                   grade_source = 'dedup_demoted',
-                   updated_at = NOW()
-               WHERE asset_id = ANY(%s)
-                 AND grade != %s""",
-            (DEMOTE_TARGET, asset_ids, DEMOTE_TARGET),
-        )
-        print(f"  DB 갱신: {cur.rowcount} 강등 (이미 {DEMOTE_TARGET} 자산은 noop)")
-
-    print("\n🔧 Layer 5 — 외장 HDD 등급 폴더 정합 ...")
-    ok = fail = 0
-    for i, aid in enumerate(asset_ids, 1):
+    print("\n🔧 강등 적용 + Layer 5 HDD 폴더 정합 ...")
+    move_ok = move_fail = 0
+    db_updated = 0
+    for i, (grade, aid, _, _) in enumerate(candidates, 1):
         if i % 100 == 0:
-            print(f"  진행 {i}/{len(asset_ids)} (ok {ok} fail/skip {fail})")
-        success, _ = apply_grade_change(aid, DEMOTE_TARGET)
+            print(f"  진행 {i}/{len(candidates)} (DB {db_updated}, HDD ok={move_ok} fail={move_fail})")
+        target = DEMOTE.get(grade, grade)
+        if target == grade:
+            continue
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE photo.classification
+                   SET grade = %s,
+                       grade_source = 'dedup_demoted_5s',
+                       updated_at = NOW()
+                   WHERE asset_id = %s::uuid
+                     AND grade = %s""",
+                (target, aid, grade),
+            )
+            if cur.rowcount > 0:
+                db_updated += 1
+        success, _ = apply_grade_change(aid, target)
         if success:
-            ok += 1
+            move_ok += 1
         else:
-            fail += 1
-    print(f"  HDD move: ok={ok} fail/skip={fail}")
+            move_fail += 1
+
+    print(f"\n📊 결과: DB 강등 {db_updated} / HDD move ok={move_ok} fail/skip={move_fail}")
 
     print("\n📊 최종 등급 분포:")
     with conn.cursor() as cur:

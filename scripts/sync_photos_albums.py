@@ -232,6 +232,58 @@ def album_add_batch(album_name: str, uuids: list[str]) -> dict:
     return out
 
 
+def rebuild_albums() -> dict:
+    """4개 앨범 삭제 + synced_to_mac_album_at 리셋 → 다음 sync에서 새로 생성.
+
+    AppleScript Photos.app의 앨범 멤버십 제거 한계 우회 (delete album + recreate).
+    """
+    album_names = list(GRADE_ALBUMS.values())
+    album_list = ", ".join(f'"{n}"' for n in album_names)
+    osascript_code = f'''
+with timeout of 600 seconds
+  tell application "Photos"
+    set deleted to 0
+    repeat with theName in {{{album_list}}}
+      try
+        delete album theName
+        set deleted to deleted + 1
+      on error
+        -- 앨범 없음 — skip
+      end try
+    end repeat
+    return deleted as text
+  end tell
+end timeout
+'''
+    deleted = 0
+    err: str | None = None
+    try:
+        r = subprocess.run(
+            ["osascript", "-e", osascript_code],
+            capture_output=True, text=True, timeout=620,
+        )
+        if r.returncode == 0:
+            deleted = int(r.stdout.strip() or 0)
+        else:
+            err = f"applescript:{r.stderr.strip()[:120]}"
+    except subprocess.TimeoutExpired:
+        err = "timeout"
+    except Exception as e:
+        err = f"{type(e).__name__}:{e}"
+
+    # DB 리셋 — 4 등급 자산 모두 unsynced 상태로
+    grades = list(GRADE_ALBUMS.keys())
+    with psycopg.connect(DB_DSN, autocommit=True) as conn, conn.cursor() as cur:
+        cur.execute("""
+            UPDATE photo.classification
+            SET synced_to_mac_album_at = NULL
+            WHERE grade = ANY(%s)
+        """, (grades,))
+        reset_count = cur.rowcount
+
+    return {"albums_deleted": deleted, "db_reset": reset_count, "error": err}
+
+
 def mark_synced(asset_ids: list[str]) -> None:
     if not asset_ids:
         return
@@ -258,9 +310,23 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=0, help="0=무제한")
     parser.add_argument("--all", action="store_true",
                         help="전수 재동기 (synced 무시)")
+    parser.add_argument("--rebuild-albums", action="store_true",
+                        help="4개 앨범 삭제 + synced 리셋 후 처음부터 재생성 "
+                             "(dedup 후 정합성 회복용)")
     args = parser.parse_args()
 
     ensure_synced_column()
+
+    if args.rebuild_albums:
+        if args.dry_run:
+            print("⚠️  --rebuild-albums + --dry-run: 통계만 (앨범 삭제 X)")
+        else:
+            print("🔄 앨범 재구축 — 4개 앨범 삭제 + synced 리셋 ...")
+            r = rebuild_albums()
+            print(f"   삭제={r['albums_deleted']} / DB synced 리셋={r['db_reset']}"
+                  f"{' / err=' + (r['error'] or '') if r.get('error') else ''}")
+            if r.get("error"):
+                print("   ⚠️  앨범 삭제 일부 실패 — 계속 진행")
 
     targets = fetch_targets(only_unsynced=not args.all, limit=args.limit)
     print(f"📋 동기 대상: {len(targets)}장 ({'전수' if args.all else 'unsynced'})")
