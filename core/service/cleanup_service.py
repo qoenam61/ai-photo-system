@@ -7,10 +7,10 @@
 - HDD 실삭제는 별도 호스트 스크립트(scripts/cleanup_run.py)에서 수행
   (photo-classify는 /storage:ro 마운트라 컨테이너에서 unlink 불가).
 
-정책 (v3.13 + 단축 결정 2026-05-03):
-- HDD 영구삭제 가능 등급: TRASH 만 (사용자 명시 안전 정책)
-- dedup_demoted: grade와 무관하게 verify PASS 후 즉시 삭제 (grace=0)
-- TRASH grace: 24h (단축, 원래 30일)
+정책 (v3.13 + 사용자 명시 정정 2026-05-05):
+- HDD 영구삭제 가능: **TRASH만** (사용자 명시 안전 정책)
+- dedup_demoted_* = 등급 강등 표시일 뿐, HDD 영구 보존 (사용자 명시 정정 2026-05-05)
+- TRASH grace: 7일 (사용자 명시 확대) — 사용자 자동 승인 시 즉시 처리 가능
 - feedback_protect 자산: 영구 제외
 """
 
@@ -29,7 +29,7 @@ DB_DSN = os.getenv(
 )
 
 DEFAULT_GRACE_HOURS = 168  # 7일 — 사용자 출장/검토 여유 (2026-05-05 확대)
-HDD_DELETABLE_GRADES = {"TRASH"}  # MEMORY-/NORMAL/FOOD/EVENT-L 등 비TRASH는 HDD 보존
+HDD_DELETABLE_GRADES = {"TRASH"}  # MEMORY-/NORMAL/FOOD/EVENT-L/dedup_demoted_* 모두 HDD 보존
 
 
 @dataclass(slots=True)
@@ -48,8 +48,7 @@ def enqueue_cleanup(
 
     - feedback_protect 자산 → skipped
     - classification 미등록 → skipped
-    - 비-TRASH 또는 비-dedup_demoted → skipped (HDD 영구삭제 정책)
-    - dedup_demoted → grace_until = NOW (즉시 처리 가능)
+    - **TRASH 외 등급(dedup_demoted_* 포함) → skipped** (사용자 명시 정정 2026-05-05)
     - 이미 등록(UNIQUE) → already_queued (no-op)
     """
     res = EnqueueResult()
@@ -81,14 +80,15 @@ def enqueue_cleanup(
                 res.skipped.append({"asset_id": aid, "reason": "no_classification"})
                 continue
             grade, src = meta[aid]
-            if grade not in HDD_DELETABLE_GRADES and src != "dedup_demoted":
+            if grade not in HDD_DELETABLE_GRADES:
                 res.skipped.append({
                     "asset_id": aid,
                     "reason": f"not_deletable:grade={grade}/source={src}",
                 })
                 continue
 
-            grace_until = now if src == "dedup_demoted" else now + grace_default
+            # TRASH만 — grace 기본 7일 (사용자 자동 승인 시 외부에서 grace=0 호출)
+            grace_until = now + grace_default
             cur.execute("""
                 INSERT INTO photo.cleanup_queue (asset_id, grace_until)
                 VALUES (%s::uuid, %s)

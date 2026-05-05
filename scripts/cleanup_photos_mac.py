@@ -174,14 +174,26 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--limit", type=int, default=20)
+    parser.add_argument("--grades", type=str, default="TRASH",
+                        help="삭제 대상 등급 (콤마 구분). 예: FOOD,MEMORY-,NORMAL,TRASH")
+    parser.add_argument("--no-progressive", action="store_true",
+                        help="phase5_ready.flag 단계 limit 우회 (사용자 명시 승인 시)")
+    parser.add_argument("--min-age-days", type=int, default=0)
     args = parser.parse_args()
 
     # 1. cleanup_candidates 조회
     try:
+        params = {
+            "grades": args.grades,
+            "min_age_days": args.min_age_days,
+            "limit": args.limit,
+        }
+        if args.no_progressive:
+            params["progressive"] = "false"
         r = httpx.get(
             f"{CLASSIFY_URL}/cleanup_candidates",
-            params={"grades": "TRASH", "min_age_days": 0, "limit": args.limit},
-            timeout=120,
+            params=params,
+            timeout=300,
         )
         r.raise_for_status()
         items = r.json().get("items", [])
