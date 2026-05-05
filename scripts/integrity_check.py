@@ -136,6 +136,7 @@ def main() -> None:
         issues.append(f"broken symlinks {views['broken']}개")
 
     # 4. 등급별 정합 (DB vs HDD vs views)
+    # 임계: 일반 등급 50 / TRASH 1000 (orphan classification 자연 발생)
     print(f"\n📁 등급별 정합:")
     print(f"   {'GRADE':10s} {'DB':>7s} {'HDD':>7s} {'views':>7s}")
     for g in GRADES:
@@ -143,9 +144,10 @@ def main() -> None:
         h_cnt = hdd.get(g, 0)
         v_cnt = views["by_grade"].get(g, 0)
         diff = abs(d_cnt - v_cnt)
-        mark = " ⚠️" if diff > 50 else ""
+        threshold = 1000 if g == "TRASH" else 50
+        mark = " ⚠️" if diff > threshold else ""
         print(f"   {g:10s} {d_cnt:>7d} {h_cnt:>7d} {v_cnt:>7d}{mark}")
-        if diff > 50:
+        if diff > threshold:
             issues.append(f"{g}: DB={d_cnt} vs views={v_cnt} 차이 {diff}")
 
     print()

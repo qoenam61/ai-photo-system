@@ -134,6 +134,19 @@ def main() -> None:
             cnt = len(list(d.iterdir()))
             print(f"  {g:8s}: {cnt} symlinks")
 
+    # fail 임계 초과 시 Telegram 알림 (MC-5)
+    if fail > 50:
+        try:
+            subprocess.run(
+                ["bash", "scripts/notify_telegram.sh",
+                 "Photo build_grade_views fail 다수",
+                 f"view symlink fail {fail}장 발생 (miss={miss}, ok={ok}). "
+                 f"외장 HDD 자산 누락 가능성 — 점검 권장."],
+                check=False, timeout=10,
+            )
+        except Exception:
+            pass
+
 
 if __name__ == "__main__":
     main()

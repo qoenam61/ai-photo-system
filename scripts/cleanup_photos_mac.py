@@ -24,6 +24,7 @@ import argparse
 import csv
 import io
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -34,6 +35,10 @@ import psycopg
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# UUID 정규식 — SQL/AppleScript injection 방어 (NC-2/3)
+UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+                     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 DB_DSN = os.getenv(
     "PHOTO_DB_DSN_HOST",
@@ -47,7 +52,11 @@ DATE_TOLERANCE = timedelta(seconds=2)
 
 
 def fetch_immich_metadata(asset_ids: list[str]) -> dict[str, tuple[str, datetime]]:
-    """asset_id → (originalFileName, fileCreatedAt) 매핑."""
+    """asset_id → (originalFileName, fileCreatedAt) 매핑.
+
+    SQL injection 방어: UUID 형식 자산만 통과 (NC-2).
+    """
+    asset_ids = [a for a in asset_ids if UUID_RE.match(a)]
     if not asset_ids:
         return {}
     in_clause = ",".join(f"'{a}'::uuid" for a in asset_ids)
@@ -103,7 +112,12 @@ def find_mac_photo_uuid(
 
 
 def delete_photo_applescript(uuid: str) -> tuple[bool, str]:
-    """AppleScript Photos.app delete by uuid + /L0/001 접미."""
+    """AppleScript Photos.app delete by uuid + /L0/001 접미.
+
+    AppleScript injection 방어: UUID 형식만 통과 (NC-3).
+    """
+    if not UUID_RE.match(uuid):
+        return False, "invalid_uuid"
     photo_id = f"{uuid}/L0/001"
     osascript_code = f'''
 with timeout of 60 seconds

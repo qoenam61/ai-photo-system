@@ -16,12 +16,17 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 from pathlib import Path
 
 import httpx
 import psycopg
 from dotenv import load_dotenv
+
+# UUID 정규식 — SQL injection 방어 (NC-2)
+UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+                     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 load_dotenv()
 
@@ -79,9 +84,9 @@ def verify_via_service(asset_id: str, client: httpx.Client) -> dict:
 def mark_immich_deleted(immich_id: str) -> bool:
     """Immich asset deletedAt 표시 — 향후 cleanup_candidates에서 자동 제외.
 
-    HDD 파일 unlink 후 호출. Immich External Library scan보다 즉시 반영.
+    HDD 파일 unlink 후 호출. SQL injection 방어: UUID 형식 검증 (NC-2).
     """
-    if not immich_id:
+    if not immich_id or not UUID_RE.match(immich_id):
         return False
     try:
         proc = subprocess.run(
