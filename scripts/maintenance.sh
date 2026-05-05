@@ -67,14 +67,17 @@ PYTHONPATH=. $POETRY run python scripts/cleanup_run.py --limit 100 --no-dry-run 
 
 # 6. 등급 폴더 정합 안전망 — DB ↔ HDD 어긋남 자동 정합 (idempotent)
 echo
-echo "[6/7] 등급 폴더 정합 (reconcile)"
+echo "[7/8] 등급 폴더 정합 (reconcile)"
 PYTHONPATH=. $POETRY run python scripts/reconcile_grade_folders.py 2>&1 | tail -8
 
 # 7. immich-views/{GRADE}/ 통합 view symlink — legacy + iPhone 모두
 # idempotent (refresh_view_link이 unlink + symlink 재생성)
 echo
-echo "[7/7] 등급별 view symlink 정합"
+echo "[8/8] 등급별 view symlink 정합"
 PYTHONPATH=. $POETRY run python scripts/build_grade_views.py 2>&1 | tail -10
+
+# .DS_Store 정리 (macOS Finder 자동 생성, 무의미)
+find /Volumes/Immich-Storage/immich-views -name '.DS_Store' -delete 2>/dev/null || true
 
 echo
 echo "=== Maintenance done $(date) ==="
