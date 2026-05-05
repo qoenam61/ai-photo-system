@@ -1,0 +1,16 @@
+# maintenance + cron 로그 (런타임 생성)
+*.log
+*.stdout
+*.stderr
+
+# flag 파일 (런타임 생성)
+*.flag
+*.ts
+
+# 진행 추적/work 파일 (런타임 생성)
+*_result.csv
+maintenance_*.txt
+
+# benchmark 결과 + Phase 0 보고는 git 추적 (의도적 보관)
+!benchmark_*.md
+!phase5_dryrun_*.txt
