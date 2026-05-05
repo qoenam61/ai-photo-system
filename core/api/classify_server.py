@@ -35,7 +35,10 @@ logger = logging.getLogger("photo-classify")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 from core.service.backup_verifier import verify_asset, _find_immich_asset, _resolve
-from core.service.classifier import Classifier, Decision, opencv_signals, exif_camera_make
+from core.service.classifier import (
+    Classifier, Decision, Signals, opencv_signals, exif_camera_make,
+    video_duration,
+)
 from core.service.cleanup_service import enqueue_cleanup
 
 
@@ -91,6 +94,12 @@ class ClassifyResponse(BaseModel):
     groq_conf: int = 0
     groq_ms: int = 0
     contains_child: bool = False
+    is_video: bool = False
+    duration_seconds: float = 0.0
+    face_count: int = 0
+    laplacian_variance: float = 0.0
+    is_screenshot: bool = False
+    camera_make: str = ""
 
 
 @app.get("/health")
@@ -116,12 +125,26 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
 
     is_video = p.suffix.lower() in (".mov", ".mp4", ".m4v", ".webm")
     cls = _get_classifier()
-    d: Decision = cls.classify_video(p) if is_video else cls.classify_image(p)
+    duration = 0.0
+    sig = Signals()
+    if is_video:
+        duration = video_duration(p)
+        d: Decision = cls.classify_video(p)
+    else:
+        sig = opencv_signals(p)
+        d = cls.classify_image(p, signals=sig)
+
     return ClassifyResponse(
         grade=d.grade, confidence=d.confidence, source=d.source,
         qwen_grade=d.qwen_grade, qwen_conf=d.qwen_conf, qwen_ms=d.qwen_ms,
         groq_grade=d.groq_grade, groq_conf=d.groq_conf, groq_ms=d.groq_ms,
         contains_child=d.contains_child,
+        is_video=is_video,
+        duration_seconds=duration,
+        face_count=sig.face_count,
+        laplacian_variance=sig.laplacian_variance,
+        is_screenshot=sig.is_screenshot,
+        camera_make=sig.camera_make,
     )
 
 
@@ -599,8 +622,11 @@ def classify_and_persist(req: ClassifyRequest) -> ClassifyResponse:
               (asset_id, source_path, sha256, file_size_bytes, grade, grade_source,
                qwen_grade, qwen_conf, qwen_ms,
                groq_grade, groq_conf, groq_ms,
-               contains_child, classified_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+               contains_child, is_video, duration_seconds,
+               face_count, laplacian_variance, is_screenshot, camera_make,
+               classified_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (asset_id) DO UPDATE SET
               grade = EXCLUDED.grade,
               grade_source = EXCLUDED.grade_source,
@@ -609,12 +635,21 @@ def classify_and_persist(req: ClassifyRequest) -> ClassifyResponse:
               groq_grade = EXCLUDED.groq_grade,
               groq_conf = EXCLUDED.groq_conf,
               contains_child = EXCLUDED.contains_child,
+              is_video = EXCLUDED.is_video,
+              duration_seconds = EXCLUDED.duration_seconds,
+              face_count = EXCLUDED.face_count,
+              laplacian_variance = EXCLUDED.laplacian_variance,
+              is_screenshot = EXCLUDED.is_screenshot,
+              camera_make = EXCLUDED.camera_make,
               updated_at = NOW()
         """, (
             asset_id, req.path, sha, file_size, resp.grade, resp.source,
             resp.qwen_grade, resp.qwen_conf, resp.qwen_ms,
             resp.groq_grade, resp.groq_conf, resp.groq_ms,
             resp.contains_child,
+            resp.is_video, resp.duration_seconds,
+            resp.face_count, resp.laplacian_variance, resp.is_screenshot,
+            resp.camera_make or None,
         ))
     return resp
 
