@@ -142,7 +142,7 @@ def find_mac_uuid(idx: dict, filename: str, ts: datetime) -> str | None:
     return None
 
 
-BATCH_CHUNK = 200  # AppleScript 안정성 — 한 호출당 ID 수
+BATCH_CHUNK = 50  # AppleScript 안정성 — Photos.app `add` 작업 AppleEvent timeout 회피
 
 
 def _album_add_chunk(album_name: str, uuids: list[str]) -> tuple[int, str | None]:
@@ -195,20 +195,38 @@ end timeout
 
 
 def album_add_batch(album_name: str, uuids: list[str]) -> dict:
-    """앨범 추가 — BATCH_CHUNK 단위로 분할 호출 (AppleScript list literal 한계 우회)."""
+    """앨범 추가 — BATCH_CHUNK 단위 분할. chunk별 성공·실패 추적.
+
+    반환:
+      processed   — 성공 chunk의 added 합계
+      synced_uuids — 성공 chunk에 포함된 UUIDs (DB synced 마킹 대상)
+      failed_count — 실패 chunk의 UUID 수 (재시도 대상)
+      error       — 마지막 오류 메시지
+    """
     if not uuids:
-        return {"processed": 0}
+        return {"processed": 0, "synced_uuids": [], "failed_count": 0}
 
     total_added = 0
+    synced_uuids: list[str] = []
+    failed_count = 0
     last_err: str | None = None
+
     for i in range(0, len(uuids), BATCH_CHUNK):
         chunk = uuids[i:i + BATCH_CHUNK]
         added, err = _album_add_chunk(album_name, chunk)
-        total_added += added
-        if err:
+        if err is None:
+            total_added += added
+            synced_uuids.extend(chunk)
+        else:
+            failed_count += len(chunk)
             last_err = err
 
-    out: dict = {"processed": total_added, "not_found": len(uuids) - total_added}
+    out: dict = {
+        "processed": total_added,
+        "synced_uuids": synced_uuids,
+        "failed_count": failed_count,
+        "not_found": len(uuids) - total_added - failed_count,
+    }
     if last_err:
         out["error"] = last_err
     return out
@@ -290,30 +308,37 @@ def main() -> None:
             print(f"  {album}: {len(items)}장")
         return
 
-    # 앨범별 batch 처리
+    # 앨범별 batch 처리 — chunk 단위 성공/실패 추적
     print("\n📁 Mac Photos 앨범 동기 ...")
     total_added = 0
+    total_failed = 0
     for album, items in by_album.items():
         if not items:
             continue
+        uuid_to_aid = {u: a for a, u in items}
         uuids = [u for _, u in items]
         r = album_add_batch(album, uuids)
         added = r.get("processed", 0)
         not_found = r.get("not_found", 0)
+        failed = r.get("failed_count", 0)
         err = r.get("error")
+        synced_uuids = r.get("synced_uuids", [])
         print(f"  {album}: added={added}/{len(uuids)} not_found={not_found}"
-              f"{' err=' + err if err else ''}")
+              f" failed_chunks={failed}"
+              f"{' err=' + err[:80] if err else ''}")
         total_added += added
+        total_failed += failed
 
-        # 권한 거부 시 synced 표시 X (다음 시도 가능)
-        if err and "권한" in err:
-            print("    ⚠️  권한 미부여 — synced 표시 보류")
-            continue
-        # synced 표시 (실패도 표시 — 다음 시도 안 함)
-        synced_aids = [a for a, _ in items]
-        mark_synced(synced_aids)
+        # 성공 chunk에 포함된 UUID만 synced 마킹 (실패 chunk는 다음 cron에서 재시도)
+        synced_aids = [uuid_to_aid[u] for u in synced_uuids if u in uuid_to_aid]
+        if synced_aids:
+            mark_synced(synced_aids)
 
-    print(f"\n📊 총 동기: {total_added}장 / iCloud 동기 자동 진행 (수 분~수 시간)")
+    msg = f"\n📊 총 동기: {total_added}장"
+    if total_failed:
+        msg += f" / 실패(재시도 대기): {total_failed}장"
+    msg += " / iCloud 동기 자동 진행 (수 분~수 시간)"
+    print(msg)
 
 
 if __name__ == "__main__":
