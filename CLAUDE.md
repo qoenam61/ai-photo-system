@@ -260,7 +260,7 @@ iPhone 자산(`immich-uploads/`) + legacy 자산(`immich-media/library/{GRADE}/`
 | 항목 | 이전 정책 | 단축/변경 결정 |
 |---|---|---|
 | 14일 dry-run 게이트 | `min_age_days=14` | `min_age_days=0` (2026-05-03) |
-| TRASH 30일 HDD grace | 30일 | 24h (2026-05-03) |
+| TRASH 30일 HDD grace | 30일 | **7일** (사용자 명시 확대 2026-05-05) |
 | `auto_short_video` 임계 | 5초 미만 | **3초 미만** (2026-05-04) |
 | backup verify 4중 검증 | 필수 | 필수 (우회 X) |
 | 시범 limit (`progressive=True`) | 20/100/200 | 20/100/무제한 |

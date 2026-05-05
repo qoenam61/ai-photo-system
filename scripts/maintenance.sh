@@ -12,7 +12,7 @@
 #   4. Immich Album 동기화 (sync_immich_albums.py)
 #   5. 통계 출력
 
-set -e
+set -u  # set -e 제거 — 단일 단계 실패가 전체 멈춤 방지 (각 단계 자체 fail tolerant)
 # macOS launchd cron의 기본 PATH는 /usr/bin:/bin 만이라 docker 등 미발견.
 # Homebrew + GNU 도구 명시.
 export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
@@ -22,6 +22,19 @@ cd /Users/jw-home/Work/photo_system/ai-photo-system
 LOG=scripts/_inventory/maintenance_$(date +%Y%m%d).log
 mkdir -p scripts/_inventory
 exec > >(tee -a "$LOG") 2>&1
+
+# 단계별 실패 추적 — 마지막에 종합 알림
+FAILED_STEPS=()
+
+# 단계 실행 + 실패 추적 헬퍼
+run_step() {
+  local step_name="$1"
+  shift
+  if ! "$@"; then
+    FAILED_STEPS+=("$step_name")
+    echo "❌ FAIL: $step_name"
+  fi
+}
 
 echo "=== Maintenance start $(date) ==="
 
@@ -79,5 +92,17 @@ PYTHONPATH=. $POETRY run python scripts/build_grade_views.py 2>&1 | tail -10
 # .DS_Store 정리 (macOS Finder 자동 생성, 무의미)
 find /Volumes/Immich-Storage/immich-views -name '.DS_Store' -delete 2>/dev/null || true
 
+# 9. 무결성 검증 (DB ↔ Immich ↔ HDD ↔ views) — 이상 시 Telegram 알림
+echo
+echo "[9/9] 무결성 검증"
+PYTHONPATH=. $POETRY run python scripts/integrity_check.py --telegram 2>&1 | tail -20
+
 echo
 echo "=== Maintenance done $(date) ==="
+
+# 실패 단계 발견 시 Telegram 알림
+if [ ${#FAILED_STEPS[@]} -gt 0 ]; then
+  bash scripts/notify_telegram.sh \
+    "Photo maintenance.sh 실패" \
+    "$(date '+%Y-%m-%d %H:%M') 다음 단계 FAIL:\n$(printf -- '- %s\n' "${FAILED_STEPS[@]}")\n\n로그: $LOG"
+fi

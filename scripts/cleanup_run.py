@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 from pathlib import Path
 
 import httpx
@@ -75,6 +76,25 @@ def verify_via_service(asset_id: str, client: httpx.Client) -> dict:
     return r.json()
 
 
+def mark_immich_deleted(immich_id: str) -> bool:
+    """Immich asset deletedAt 표시 — 향후 cleanup_candidates에서 자동 제외.
+
+    HDD 파일 unlink 후 호출. Immich External Library scan보다 즉시 반영.
+    """
+    if not immich_id:
+        return False
+    try:
+        proc = subprocess.run(
+            ["docker", "exec", "-i", "immich-postgres",
+             "psql", "-U", "postgres", "-d", "immich", "-c",
+             f"UPDATE asset SET \"deletedAt\" = NOW() WHERE id = '{immich_id}'"],
+            capture_output=True, text=True, timeout=10,
+        )
+        return proc.returncode == 0
+    except Exception:
+        return False
+
+
 def mark_audit(
     queue_id: int,
     asset_id: str,
@@ -97,7 +117,12 @@ def mark_audit(
             VALUES (%s::uuid, %s, 'hdd', %s, %s, %s, NOW())
             RETURNING id
         """, (asset_id, immich_id or None, success, reason, reclaimed_bytes))
-        return cur.fetchone()[0]
+        audit_id = cur.fetchone()[0]
+
+    # success 시 Immich asset deletedAt 표시 (orphan 방지)
+    if success and immich_id:
+        mark_immich_deleted(immich_id)
+    return audit_id
 
 
 def main() -> None:

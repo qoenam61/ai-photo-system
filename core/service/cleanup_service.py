@@ -28,7 +28,7 @@ DB_DSN = os.getenv(
     "user=trading_user password=RyIokQY7bV3y7SEsyFLu2Oa6",
 )
 
-DEFAULT_GRACE_HOURS = 24  # 사용자 명시 단축 (2026-05-03)
+DEFAULT_GRACE_HOURS = 168  # 7일 — 사용자 출장/검토 여유 (2026-05-05 확대)
 HDD_DELETABLE_GRADES = {"TRASH"}  # MEMORY-/NORMAL/FOOD/EVENT-L 등 비TRASH는 HDD 보존
 
 

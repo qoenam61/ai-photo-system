@@ -56,12 +56,12 @@ def main() -> None:
         print("✅ 미등록 TRASH 자산 없음")
         return
 
-    print(f"🗑  미등록 TRASH 자산 {len(asset_ids)}장 → cleanup_queue 등록 (grace 24h)")
+    print(f"🗑  미등록 TRASH 자산 {len(asset_ids)}장 → cleanup_queue 등록 (grace 7일)")
 
     try:
         r = httpx.post(
             f"{CLASSIFY_URL}/cleanup_enqueue",
-            json={"asset_ids": asset_ids, "grace_hours": 24},
+            json={"asset_ids": asset_ids, "grace_hours": 168},
             timeout=60,
         )
         r.raise_for_status()
