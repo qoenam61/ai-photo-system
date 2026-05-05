@@ -16,7 +16,9 @@ services:
       - default
       - trading_net
     ports:
-      - "127.0.0.1:8765:8000"
+      # iPhone 단축어 LAN 접근용 (가정 Wi-Fi 한정).
+      # 사용자 명시 2026-05-05.
+      - "8765:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
