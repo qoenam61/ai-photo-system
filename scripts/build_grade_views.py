@@ -56,10 +56,35 @@ def fetch_immich_index() -> dict[str, str]:
     return {Path(row[0]).stem: row[0] for row in rows}
 
 
+def cleanup_broken_links() -> int:
+    """모든 immich-views/{GRADE}/ 폴더에서 broken symlink 제거.
+
+    cleanup_run.py가 외장 HDD 자산 unlink 후 남는 잔재 정리.
+    Returns: 정리된 broken symlink 개수.
+    """
+    cleaned = 0
+    for grade_dir in VIEWS_HOST.iterdir():
+        if not grade_dir.is_dir() or grade_dir.name == "월별":
+            continue
+        for link in grade_dir.iterdir():
+            if link.is_symlink() and not link.exists():
+                try:
+                    link.unlink()
+                    cleaned += 1
+                except Exception:
+                    pass
+    return cleaned
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+
+    if not args.dry_run:
+        broken_cleaned = cleanup_broken_links()
+        if broken_cleaned:
+            print(f"🧹 broken symlink 정리: {broken_cleaned}개")
 
     print("🔍 Immich asset 인덱스 로드 ...")
     immich_idx = fetch_immich_index()
