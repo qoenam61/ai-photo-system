@@ -54,33 +54,37 @@ DATE_TOLERANCE = timedelta(seconds=2)
 def fetch_immich_metadata(asset_ids: list[str]) -> dict[str, tuple[str, datetime]]:
     """asset_id → (originalFileName, fileCreatedAt) 매핑.
 
-    SQL injection 방어: UUID 형식 자산만 통과 (NC-2).
+    photo.classification.asset_id == originalPath stem (UUID).
+    Immich asset.id (DB primary key)와 다르므로 stem 매칭 사용.
     """
     asset_ids = [a for a in asset_ids if UUID_RE.match(a)]
     if not asset_ids:
         return {}
-    in_clause = ",".join(f"'{a}'::uuid" for a in asset_ids)
+
+    # Immich 전체 active asset 인덱스 (originalPath stem → metadata)
     proc = subprocess.run(
         ["docker", "exec", "-i", "immich-postgres",
          "psql", "-U", "postgres", "-d", "immich", "--csv", "-c",
-         f"""SELECT id::text, "originalFileName", "fileCreatedAt"
-             FROM asset
-             WHERE id::text IN (
-               SELECT id::text FROM unnest(ARRAY[{in_clause}]) AS id
-             )"""],
-        capture_output=True, text=True, check=True, timeout=30,
+         """SELECT "originalPath", "originalFileName", "fileCreatedAt"
+            FROM asset WHERE "deletedAt" IS NULL"""],
+        capture_output=True, text=True, check=True, timeout=120,
     )
     rows = list(csv.reader(io.StringIO(proc.stdout)))[1:]
-    out: dict[str, tuple[str, datetime]] = {}
+
+    from pathlib import Path as _Path
+    full_idx: dict[str, tuple[str, datetime]] = {}
     for row in rows:
         if len(row) < 3:
             continue
+        stem = _Path(row[0]).stem
         try:
             ts = datetime.fromisoformat(row[2].replace(" ", "T"))
         except ValueError:
             continue
-        out[row[0]] = (row[1], ts)
-    return out
+        full_idx[stem] = (row[1], ts)
+
+    # asset_ids 매칭만 추출
+    return {a: full_idx[a] for a in asset_ids if a in full_idx}
 
 
 def build_filename_index(
