@@ -138,17 +138,59 @@ def find_mac_uuid(idx: dict, filename: str, ts: datetime) -> str | None:
 
 
 def album_add_batch(album_name: str, uuids: list[str]) -> dict:
-    """photos_cli album-add 호출."""
+    """AppleScript Photos.app으로 앨범 추가 (이미 권한 부여됨).
+
+    osxphotos UUID는 PHAsset.localIdentifier 접미 X.
+    AppleScript Photos.app `id` property는 `<UUID>/L0/001` 형식이므로 접미 추가.
+    """
     if not uuids:
         return {"processed": 0}
+
+    # AppleScript는 단일 호출이 효율 — JSON 응답 형식
+    photo_ids = [f"{u}/L0/001" for u in uuids]
+    # AppleScript list literal — UUID는 하이픈만 들어가서 안전
+    id_list = ", ".join(f'"{pid}"' for pid in photo_ids)
+
+    osascript_code = f'''
+with timeout of 600 seconds
+  tell application "Photos"
+    set targetIDs to {{{id_list}}}
+    set photosFound to {{}}
+    repeat with pid in targetIDs
+      try
+        set p to (first media item whose id is pid)
+        copy p to end of photosFound
+      end try
+    end repeat
+
+    -- 앨범 찾기 또는 생성 (Photos.app: `make new album named "..."`)
+    try
+      set targetAlbum to album "{album_name}"
+    on error
+      set targetAlbum to make new album named "{album_name}"
+    end try
+
+    -- 추가
+    if (count of photosFound) > 0 then
+      add photosFound to targetAlbum
+    end if
+
+    return (count of photosFound) as text
+  end tell
+end timeout
+'''
     try:
         r = subprocess.run(
-            [str(PHOTOS_CLI), "album-add", album_name, *uuids],
-            capture_output=True, text=True, timeout=120,
+            ["osascript", "-e", osascript_code],
+            capture_output=True, text=True, timeout=700,
         )
-        if r.stdout.strip():
-            return json.loads(r.stdout.strip())
-        return {"processed": 0, "error": r.stderr.strip()[:80]}
+        if r.returncode != 0:
+            return {"processed": 0,
+                    "error": f"applescript:{r.stderr.strip()[:120]}"}
+        added = int(r.stdout.strip() or 0)
+        return {"processed": added, "not_found": len(uuids) - added}
+    except subprocess.TimeoutExpired:
+        return {"processed": 0, "error": "timeout"}
     except Exception as e:
         return {"processed": 0, "error": f"{type(e).__name__}:{e}"}
 
