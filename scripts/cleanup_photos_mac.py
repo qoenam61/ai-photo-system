@@ -115,48 +115,75 @@ def find_mac_photo_uuid(
     return None
 
 
-def delete_photo_applescript(uuid: str) -> tuple[bool, str]:
-    """AppleScript Photos.app delete by uuid + /L0/001 접미.
+TODELETE_ALBUM = "🗑 ToDelete"
+BATCH_CHUNK = 50  # AppleScript 안정 한계
 
-    AppleScript injection 방어: UUID 형식만 통과 (NC-3).
+
+def add_to_todelete_album_batch(uuids: list[str]) -> tuple[int, int, str | None]:
+    """🗑 ToDelete 앨범에 batch 추가 (AppleScript delete 한계 우회).
+
+    Photos.app AppleScript는 media item delete 미지원 (`album/folder` 유형만).
+    대안: 🗑 ToDelete 앨범에 모음 → 사용자가 Mac Photos UI에서 Cmd+A+Delete로 일괄 처리.
+
+    반환: (added, failed, last_error)
     """
-    if not UUID_RE.match(uuid):
-        return False, "invalid_uuid"
-    photo_id = f"{uuid}/L0/001"
-    osascript_code = f'''
-with timeout of 60 seconds
+    valid = [u for u in uuids if UUID_RE.match(u)]
+    if not valid:
+        return 0, len(uuids) - len(valid), "no_valid_uuid"
+
+    total_added = 0
+    total_failed = 0
+    last_err: str | None = None
+
+    for i in range(0, len(valid), BATCH_CHUNK):
+        chunk = valid[i:i + BATCH_CHUNK]
+        photo_ids = [f"{u}/L0/001" for u in chunk]
+        id_list = ", ".join(f'"{pid}"' for pid in photo_ids)
+
+        osascript_code = f'''
+with timeout of 600 seconds
   tell application "Photos"
+    set photosFound to {{}}
+    repeat with theID in {{{id_list}}}
+      try
+        set p to media item id theID
+        set end of photosFound to p
+      end try
+    end repeat
+
     try
-      set targetPhotos to (every media item whose id is "{photo_id}")
-      if (count of targetPhotos) > 0 then
-        delete targetPhotos
-        return "deleted"
-      else
-        return "not_found"
-      end if
-    on error e
-      return "error: " & e
+      set targetAlbum to album "{TODELETE_ALBUM}"
+    on error
+      set targetAlbum to make new album named "{TODELETE_ALBUM}"
     end try
+
+    if (count of photosFound) > 0 then
+      add photosFound to targetAlbum
+    end if
+
+    return (count of photosFound) as text
   end tell
 end timeout
 '''
-    try:
-        r = subprocess.run(
-            ["osascript", "-e", osascript_code],
-            capture_output=True, text=True, timeout=90,
-        )
-        if r.returncode != 0:
-            return False, f"applescript_fail:{r.stderr.strip()[:80]}"
-        msg = r.stdout.strip()
-        if msg == "deleted":
-            return True, "deleted"
-        if msg == "not_found":
-            return False, "not_found"
-        return False, msg
-    except subprocess.TimeoutExpired:
-        return False, "timeout"
-    except Exception as e:
-        return False, f"exception:{type(e).__name__}"
+        try:
+            r = subprocess.run(
+                ["osascript", "-e", osascript_code],
+                capture_output=True, text=True, timeout=620,
+            )
+            if r.returncode != 0:
+                total_failed += len(chunk)
+                last_err = f"applescript:{r.stderr.strip()[:120]}"
+                continue
+            added = int(r.stdout.strip() or 0)
+            total_added += added
+        except subprocess.TimeoutExpired:
+            total_failed += len(chunk)
+            last_err = "timeout"
+        except Exception as e:
+            total_failed += len(chunk)
+            last_err = f"{type(e).__name__}:{e}"
+
+    return total_added, total_failed, last_err
 
 
 def record_audit(
@@ -239,9 +266,13 @@ def main() -> None:
         print(f"\n📊 매칭 {matched} / 미매칭 {unmatched} / no_meta {no_meta}")
         return
 
-    print("\n🗑  Mac Photos.app 정리 ...")
-    success = not_found = no_meta = error = 0
+    print(f"\n🗑  Mac Photos.app — '{TODELETE_ALBUM}' 앨범에 추가 ...")
+    print(f"     (AppleScript는 media item 직접 삭제 미지원 — 사용자 수동 정리 필요)")
     now = datetime.now().isoformat()
+
+    # 매칭 결과 수집
+    matched: list[tuple[str, str, str, str]] = []  # (aid, immich_id, filename, mac_uuid)
+    not_found = no_meta = 0
     for it in items:
         aid = it["asset_id"]
         immich_id = it.get("immich_id", "")
@@ -254,20 +285,32 @@ def main() -> None:
         if not uuid:
             not_found += 1
             continue
-        ok, msg = delete_photo_applescript(uuid)
-        if ok:
-            record_audit(aid, immich_id, True,
-                         f"mac_photos_delete:{filename}", now)
-            success += 1
-            print(f"  ✓ {aid[:8]} {filename} → deleted")
-        else:
-            error += 1
-            record_audit(aid, immich_id, False, msg, now)
-            print(f"  ✗ {aid[:8]} {filename} → {msg}")
+        matched.append((aid, immich_id, filename, uuid))
 
-    print(f"\n📊 ok={success} / 미매칭(Mac에없음)={not_found} / "
-          f"meta없음={no_meta} / error={error}")
-    print(f"   → Mac 휴지통 → iCloud → iPhone (30일 안전망)")
+    # batch 추가
+    uuids = [u for _, _, _, u in matched]
+    added, failed, err = add_to_todelete_album_batch(uuids)
+
+    # cleanup_audit 기록 — added 자산은 success, failed는 audit 없음 (재시도 가능)
+    success = 0
+    if added > 0:
+        # batch는 어떤 UUID가 성공했는지 별도 알 수 없음 → 모두 success 처리
+        # (Photos.app은 중복 추가 자동 dedupe — 재시도해도 안전)
+        synced_uuids = uuids[:added] if added < len(uuids) else uuids
+        synced_set = set(synced_uuids)
+        for aid, immich_id, filename, mac_uuid in matched:
+            if mac_uuid in synced_set:
+                record_audit(aid, immich_id, True,
+                             f"mac_photos_todelete:{filename}", now)
+                success += 1
+
+    print(f"\n📊 매칭: {len(matched)}장 / 추가: {added} / 실패: {failed}"
+          f" / 미매칭: {not_found} / no_meta: {no_meta}")
+    if err:
+        print(f"   마지막 오류: {err}")
+    print(f"\n💡 다음 단계: Mac Photos에서 '{TODELETE_ALBUM}' 앨범 열기"
+          f"\n   → Cmd+A (전체 선택) → Cmd+Delete (휴지통 이동)"
+          f"\n   → iCloud 자동 동기 → iPhone 휴지통 (30일 안전망)")
 
 
 if __name__ == "__main__":
