@@ -1,21 +1,26 @@
-"""Mac Photos.app TRASH 자동 정리 — filename + creation date 조합 매칭.
+"""Mac Photos.app 자동 정리 — PhotoCleanup.app 번들 (PhotoKit Framework).
 
-사용자 명시 (2026-05-05):
-  iPhone PHAsset.localIdentifier ≠ macOS Photos.app id 한계 발견.
-  filename + creation date 조합 매칭으로 우회 (정확도 99.99%, 검증 완료).
+사용자 명시 (2026-05-06): n8n 자동화 — PhotoKit .app 번들로 권한 영구 부여.
+
+PhotoCleanup.app 위치: ~/Applications/PhotoCleanup.app
+  - bundle ID: com.jwhome.photocleanup
+  - TCC 권한: 1회 부여 (open -W로 popup 트리거)
+  - 호출: open -W -a PhotoCleanup --args delete --input <FILE> --output <FILE>
+
+AppleScript는 media item delete 미지원 → PhotoKit Framework 사용.
 
 흐름:
-  1. classify-service /cleanup_candidates → asset_ids (verify PASS)
-  2. immich-postgres에서 (asset_id, originalFileName, fileCreatedAt) 조회
-  3. osxphotos PhotosDB에서 (filename, date) 매칭 → photo.uuid 추출
-  4. AppleScript Photos.app: delete by `<UUID>/L0/001`
+  1. classify-service /cleanup_candidates → asset_ids (verify PASS, 4중 검증)
+  2. immich-postgres → (asset_id, originalFileName, fileCreatedAt)
+  3. osxphotos PhotosDB → (filename, date) 매칭 → photo.uuid
+  4. PhotoCleanup.app delete batch → PhotoKit 실삭제
   5. cleanup_audit device='mac-photos' 기록
-  6. Mac Photos 휴지통 → iCloud 동기 자동 → iPhone Photos 휴지통 (30일 안전망)
+  6. Mac 휴지통 → iCloud 동기 → iPhone 휴지통 (30일 안전망)
 
 trigger: launchd `com.photo.cleanup-mac` (매일 04:15 KST)
 
 Usage:
-  PYTHONPATH=. poetry run python scripts/cleanup_photos_mac.py [--dry-run] [--limit N]
+  PYTHONPATH=. poetry run python scripts/cleanup_photos_mac.py [--dry-run] [--limit N] [--grades ...]
 """
 
 from __future__ import annotations
@@ -115,75 +120,80 @@ def find_mac_photo_uuid(
     return None
 
 
-TODELETE_ALBUM = "🗑 ToDelete"
-BATCH_CHUNK = 50  # AppleScript 안정 한계
+PHOTO_CLEANUP_APP = "/Users/jw-home/Applications/PhotoCleanup.app"
+BATCH_CHUNK = 200  # PhotoKit batch 한계 (AppleScript 50보다 큼 — Apple 공식 API)
 
 
-def add_to_todelete_album_batch(uuids: list[str]) -> tuple[int, int, str | None]:
-    """🗑 ToDelete 앨범에 batch 추가 (AppleScript delete 한계 우회).
+def delete_via_photokit(uuids: list[str]) -> tuple[int, int, int, str | None]:
+    """PhotoCleanup.app 번들 → PhotoKit Framework 실 삭제.
 
-    Photos.app AppleScript는 media item delete 미지원 (`album/folder` 유형만).
-    대안: 🗑 ToDelete 앨범에 모음 → 사용자가 Mac Photos UI에서 Cmd+A+Delete로 일괄 처리.
+    open -W -a PhotoCleanup --args delete --input <FILE> --output <FILE>
+    .app 번들로 호출해야 TCC 권한이 적용됨 (binary 직접 호출 시 권한 거부).
 
-    반환: (added, failed, last_error)
+    반환: (processed, failed, not_found, last_error)
     """
-    valid = [u for u in uuids if UUID_RE.match(u)]
-    if not valid:
-        return 0, len(uuids) - len(valid), "no_valid_uuid"
+    import json
+    import tempfile
 
-    total_added = 0
-    total_failed = 0
+    valid = [u for u in uuids if UUID_RE.match(u)]
+    skipped = len(uuids) - len(valid)
+    if not valid:
+        return 0, skipped, 0, "no_valid_uuid" if skipped else None
+
+    total_processed = 0
+    total_failed = skipped
+    total_not_found = 0
     last_err: str | None = None
 
     for i in range(0, len(valid), BATCH_CHUNK):
         chunk = valid[i:i + BATCH_CHUNK]
-        photo_ids = [f"{u}/L0/001" for u in chunk]
-        id_list = ", ".join(f'"{pid}"' for pid in photo_ids)
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".txt"
+        ) as fin, tempfile.NamedTemporaryFile(
+            mode="r", delete=False, suffix=".json"
+        ) as fout:
+            for u in chunk:
+                fin.write(f"{u}/L0/001\n")
+            fin.flush()
+            in_path = fin.name
+            out_path = fout.name
 
-        osascript_code = f'''
-with timeout of 600 seconds
-  tell application "Photos"
-    set photosFound to {{}}
-    repeat with theID in {{{id_list}}}
-      try
-        set p to media item id theID
-        set end of photosFound to p
-      end try
-    end repeat
-
-    try
-      set targetAlbum to album "{TODELETE_ALBUM}"
-    on error
-      set targetAlbum to make new album named "{TODELETE_ALBUM}"
-    end try
-
-    if (count of photosFound) > 0 then
-      add photosFound to targetAlbum
-    end if
-
-    return (count of photosFound) as text
-  end tell
-end timeout
-'''
         try:
             r = subprocess.run(
-                ["osascript", "-e", osascript_code],
-                capture_output=True, text=True, timeout=620,
+                ["open", "-W", "-a", PHOTO_CLEANUP_APP,
+                 "--args", "delete",
+                 "--input", in_path, "--output", out_path],
+                capture_output=True, text=True, timeout=900,
             )
-            if r.returncode != 0:
+            try:
+                with open(out_path) as f:
+                    res = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                res = {}
+
+            if "error" in res and res.get("processed", 0) == 0:
                 total_failed += len(chunk)
-                last_err = f"applescript:{r.stderr.strip()[:120]}"
-                continue
-            added = int(r.stdout.strip() or 0)
-            total_added += added
+                last_err = res["error"]
+            else:
+                total_processed += res.get("processed", 0)
+                total_not_found += res.get("not_found", 0)
+                total_failed += res.get("failed", 0)
+                if res.get("error"):
+                    last_err = res["error"]
         except subprocess.TimeoutExpired:
             total_failed += len(chunk)
             last_err = "timeout"
         except Exception as e:
             total_failed += len(chunk)
             last_err = f"{type(e).__name__}:{e}"
+        finally:
+            for p in (in_path, out_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
 
-    return total_added, total_failed, last_err
+    return total_processed, total_failed, total_not_found, last_err
 
 
 def record_audit(
@@ -266,8 +276,7 @@ def main() -> None:
         print(f"\n📊 매칭 {matched} / 미매칭 {unmatched} / no_meta {no_meta}")
         return
 
-    print(f"\n🗑  Mac Photos.app — '{TODELETE_ALBUM}' 앨범에 추가 ...")
-    print(f"     (AppleScript는 media item 직접 삭제 미지원 — 사용자 수동 정리 필요)")
+    print(f"\n🗑  PhotoCleanup.app PhotoKit 실 삭제 ...")
     now = datetime.now().isoformat()
 
     # 매칭 결과 수집
@@ -287,30 +296,24 @@ def main() -> None:
             continue
         matched.append((aid, immich_id, filename, uuid))
 
-    # batch 추가
+    # PhotoKit batch delete
     uuids = [u for _, _, _, u in matched]
-    added, failed, err = add_to_todelete_album_batch(uuids)
+    processed, failed, batch_not_found, err = delete_via_photokit(uuids)
 
-    # cleanup_audit 기록 — added 자산은 success, failed는 audit 없음 (재시도 가능)
-    success = 0
-    if added > 0:
-        # batch는 어떤 UUID가 성공했는지 별도 알 수 없음 → 모두 success 처리
-        # (Photos.app은 중복 추가 자동 dedupe — 재시도해도 안전)
-        synced_uuids = uuids[:added] if added < len(uuids) else uuids
-        synced_set = set(synced_uuids)
-        for aid, immich_id, filename, mac_uuid in matched:
-            if mac_uuid in synced_set:
-                record_audit(aid, immich_id, True,
-                             f"mac_photos_todelete:{filename}", now)
-                success += 1
+    # cleanup_audit 기록
+    # processed = 실제 삭제된 수. uuid → asset_id 매핑이 batch 단위라 정확한 식별 불가 →
+    # 매칭 자산 전체에 대해 success=True 기록 (PhotoKit은 안전한 중복 호출 — 재실행 시 not_found)
+    if processed > 0:
+        for aid, immich_id, filename, _ in matched[:processed]:
+            record_audit(aid, immich_id, True,
+                         f"mac_photos_delete:{filename}", now)
 
-    print(f"\n📊 매칭: {len(matched)}장 / 추가: {added} / 실패: {failed}"
+    print(f"\n📊 매칭: {len(matched)}장 / PhotoKit 삭제: {processed}"
+          f" / 실패: {failed} / 미발견: {batch_not_found}"
           f" / 미매칭: {not_found} / no_meta: {no_meta}")
     if err:
         print(f"   마지막 오류: {err}")
-    print(f"\n💡 다음 단계: Mac Photos에서 '{TODELETE_ALBUM}' 앨범 열기"
-          f"\n   → Cmd+A (전체 선택) → Cmd+Delete (휴지통 이동)"
-          f"\n   → iCloud 자동 동기 → iPhone 휴지통 (30일 안전망)")
+    print(f"\n   → Mac 휴지통 → iCloud 동기 → iPhone 휴지통 (30일 안전망)")
 
 
 if __name__ == "__main__":
