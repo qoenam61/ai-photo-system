@@ -179,7 +179,17 @@ iCloud Photos 백업 = **고퀄 등급만** (BEST/EVENT/EVENT-L/MEMORY+ 4개).
 - iCloud 동기로 iPhone/iPad 자동 표시
 - TRASH 정리는 `scripts/cleanup_photos_mac.py`가 독립 처리 (앨범 동기 X, 직접 삭제)
 
-### 8등급 상세 명세 (사용자 명시, 2026-05-04)
+### 8등급 상세 명세 (사용자 명시, 2026-05-04 + 2026-05-06 강화)
+
+**SSoT**: [`wiki/01-sot/grade_classification_spec.md`](wiki/01-sot/grade_classification_spec.md) — 진입/제외 조건 + 세분화 + 경계 케이스 + 신호 임계값 표
+
+**핵심 강화 (2026-05-06)**:
+- 각 등급에 서브 카테고리 명시 (예: BEST = 인물/풍경/사물/동물)
+- 행사 키워드 구체화 (결혼·돌잔치·생일·기념일 각각 인식 항목 명시)
+- 경계 케이스 표 (16개 케이스: "웨딩+뒷모습", "음식+사람셀카" 등)
+- LLM 응답 sanity check 후처리 (BEST 환각 / TRASH 오판 / FOOD-군중 보정)
+- 신호 임계값 명시 (laplacian/face_count/duration/aspect_ratio)
+
 
 | 등급 | 정의 | 분류 트리거 |
 |---|---|---|

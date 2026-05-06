@@ -40,40 +40,96 @@ from core.client.llm_gateway import vision_classify, LLMGatewayError
 logger = logging.getLogger(__name__)
 
 
-PROMPT = """가족 사진 분류기. 4등급 中 정확히 하나 + 어린이 포함 여부:
+PROMPT = """가족 사진 4등급 분류기 + 어린이 포함 판정. 결과는 JSON만 출력.
 
-[TRASH 정의] (사용자 명시 2026-05-04/05 — 의미 없는 사진)
-  - UI 스크린샷, 완전 흑백/단색 화면
-  - 초점이 완전히 나간 사진 (피사체 식별 불가)
-  - 바닥·벽·천장만 찍힌 사진 (피사체 없음)
-  - 잘못 촬영된 사진 (손가락 가림, 흔들림 심함, 노출 완전 실패)
-  - 매우 짧거나 잘못 찍힌 영상
-  - **사람이 있지만 얼굴이 안 보이는 사진** (사용자 명시 2026-05-05):
-      · 다리만/발만/손만 보이는 부분 신체 컷
-      · 뒷모습만 (얼굴 측면도 안 보임)
-      · 얼굴이 잘리거나 가려져서 인물 식별 불가
-      · 멀리 있어서 얼굴이 픽셀 단위로 작아 식별 불가
-      → 행사 컨텍스트(웨딩·돌잔치 등)여도 얼굴 안 보이면 TRASH
-  ※ 단순 흐림(약간 초점 안 맞음)은 TRASH 아님 → BEST 또는 EVENT
+═══════════════════════════════════════════════════════════════════
+판단 순서 (위에서 아래로, 첫 매칭 사용)
+═══════════════════════════════════════════════════════════════════
 
-판단 순서:
-1. 위 TRASH 정의에 해당 → TRASH
-   (특히 얼굴 1개 이상이 명확히 보이지 않는 사람 사진은 무조건 TRASH)
-2. 음식이 화면 50%+ → FOOD
-3. 얼굴이 명확히 보이는 사람 3+ OR
-   (얼굴 보이는 사람 + 행사 키워드: 케이크·꽃다발·드레스·한복·웨딩·돌잔치·생일·졸업·기념일·가족스튜디오·신생아·만삭·100일·돌·칠순)
-   → EVENT
-4. 그 외 (얼굴 보이는 인물 사진이거나 풍경/사물 等) → BEST
+[1단계] TRASH 검사 (다음 中 하나라도 해당 → TRASH)
 
-[얼굴 가시성 기준 — 핵심]
-  EVENT/BEST는 얼굴이 식별 가능한 크기·각도로 보여야 한다.
-  뒷모습·신체 일부·먼 거리 군중 컷은 행사여도 TRASH.
+  (A) 의미 없는 사진:
+      · UI 스크린샷 (메신저/웹/앱 캡처, "광고" 텍스트 가득)
+      · 완전 흑백/단색 화면, 검은/흰 빈 화면
+      · 초점 완전 나감 — 피사체 식별 자체 불가능
+      · 바닥/벽/천장만 (찍히는 의도 없는 우연 촬영)
+      · 손가락 가림으로 피사체 안 보임
+      · 노출 완전 실패 (전체가 새카맣거나 새하얗다)
+      · 영상 < 3초 (짧은 우연 촬영)
 
-contains_child: 만 18세 미만 어린이(영유아·아동·청소년) 1명 이상 얼굴이 보이면 true, 아니면 false.
-어른만 있거나 사물·풍경뿐이면 false.
+  (B) 사람이 있지만 얼굴이 안 보이는 사진 — **사용자 명시 핵심 룰**:
+      · 다리만/발만/손만 보이는 부분 신체
+      · 뒷모습만 (얼굴 측면도 식별 불가)
+      · 얼굴이 잘리거나 가려져 인물 식별 불가
+      · 멀리 있어 얼굴이 픽셀 단위로 작음
+      → **결혼식·돌잔치·생일 등 행사 컨텍스트여도 얼굴 미가시 → TRASH**
+      → 행사 분위기 그 자체로는 보존 가치 X, 사람 식별이 핵심
 
-JSON만 출력:
-{"grade":"<EVENT|BEST|FOOD|TRASH>","confidence":<1-10>,"reason":"<짧게>","contains_child":<true|false>}"""
+  [TRASH 아닌 경우 — 보존선]
+      ⊘ 약간 흐림 (초점이 살짝 안 맞음) → TRASH 아님 → BEST/EVENT 또는 흐림 등급 보존
+      ⊘ 의도적 흑백 필터 + 인물 명확 → TRASH 아님 → BEST 가능
+      ⊘ 의도적 보케·아웃포커스 + 피사체 명확 → BEST 가능
+
+[2단계] FOOD 검사
+
+  음식이 화면 50% 이상 차지 → FOOD
+  단, 음식 + 사람 얼굴 명확이 큰 비중이면 → 인물 우선 (EVENT/BEST/MEMORY+)
+
+[3단계] EVENT 검사 (얼굴 가시성 필수 — 이게 핵심)
+
+  다음 중 하나에 해당하면 EVENT:
+    (A) 얼굴 명확히 보이는 사람 3명 이상 (단체 사진)
+    (B) 얼굴 명확히 보이는 사람 1+ AND 행사 키워드 명백:
+        · 결혼·웨딩: 드레스, 턱시도, 한복, 신부 부케, 웨딩 케이크, 웨딩홀
+        · 돌잔치: 돌상, 돌띠, 돌잡이 도구
+        · 생일: 생일 케이크, 고깔모자, "HAPPY BIRTHDAY", 풍선 장식
+        · 가족 행사: 가족스튜디오, 명절 한복, 가족 단체
+        · 기념일: 100일, 돌, 만삭, 신생아, 칠순, 졸업장, 학사모
+        · 제사·차례상
+
+  ※ 행사 분위기지만 얼굴 가시성 X → TRASH (1단계로 회귀)
+  ※ 사람 1-2명 + 행사 키워드 X → BEST 또는 인물 BEST
+
+[4단계] BEST (위 단계 모두 해당 X)
+
+  · 얼굴 명확한 인물 사진 (1-2명, 행사 X)
+  · 풍경·여행지·도시 풍경
+  · 사물 클로즈업 (꽃·작품·기념품 등)
+  · 동물 (반려동물·야생)
+  · 의도적 흑백/보케 필터 + 식별 가능
+
+═══════════════════════════════════════════════════════════════════
+경계 케이스 가이드
+═══════════════════════════════════════════════════════════════════
+
+  · 웨딩 사진 + 신부 뒷모습 → TRASH (얼굴 미가시 우선)
+  · 웨딩 사진 + 신부+신랑 정면 → EVENT
+  · 행사장 단체 사진 + 일부만 얼굴 안 보임 → 다수 명확하면 EVENT
+  · 햄버거 + 손에 들고 셀카 + 얼굴 명확 → BEST/MEMORY+ (얼굴 우선)
+  · 행사 케이크 컷 + 가족 얼굴 명확 → EVENT (행사 우선)
+  · 풍경 + 사람 작게 → BEST (사람은 부수)
+  · 흑백 모니터 화면 → TRASH (UI 스크린샷)
+  · 의도적 흑백 인물 → BEST (필터 적용)
+
+═══════════════════════════════════════════════════════════════════
+contains_child (어린이 포함)
+═══════════════════════════════════════════════════════════════════
+
+  18세 미만 어린이(영유아·아동·청소년) 1명 이상의 얼굴이 보이면 true.
+  어른만 / 사물·풍경뿐 / 어린이 있어도 얼굴 안 보임 → false.
+
+═══════════════════════════════════════════════════════════════════
+출력 형식 (JSON만)
+═══════════════════════════════════════════════════════════════════
+
+{"grade":"<EVENT|BEST|FOOD|TRASH>","confidence":<1-10>,"reason":"<10자 이내 핵심 이유>","contains_child":<true|false>}
+
+confidence 가이드:
+  · 10 = 명확 (예: 정면 셀카 BEST, 웨딩 단체 EVENT)
+  · 7-9 = 안전 (대부분의 케이스)
+  · 5-6 = 경계 (세부 룰 적용 필요)
+  · 1-4 = 불확실 (어두움/잘 안 보임)
+"""
 
 LLM_GRADES = {"EVENT", "BEST", "FOOD", "TRASH"}
 
@@ -201,13 +257,43 @@ def _ensemble(qg: str, qc: int, gg: str, gc: int) -> tuple[str, int, str]:
     return gg if gg in LLM_GRADES else qg, gc, "llm_groq"
 
 
+def _llm_sanity_check(llm_grade: str, signals: Signals) -> tuple[str, str]:
+    """LLM 응답 + 자동 신호 sanity check (사용자 명시 강화 2026-05-06).
+
+    LLM이 환각하거나 오판한 케이스 보정:
+      - LLM=BEST + 신호 모두 의심 → TRASH 재판정
+      - LLM=FOOD + 사람 다수 → 인물 우선 재판정
+      - LLM=TRASH + 사람 명확 + 선명 → MEMORY+ 재판정 (단순 흐림 보호)
+
+    반환: (corrected_grade, source_suffix)
+    """
+    fc = signals.face_count
+    lap = signals.laplacian_variance
+    cam = signals.camera_make
+
+    # BEST → 신호 모두 의심: 얼굴 X + 카메라메타 X + 매우 흐림
+    if llm_grade == "BEST":
+        if fc == 0 and not cam and lap < 30 and lap > 0:
+            return "TRASH", "_llm_best_unverified"
+
+    # FOOD → 사람 다수 (인물 우선)
+    if llm_grade == "FOOD" and fc >= 5:
+        return "EVENT", "_llm_food_with_crowd"
+
+    # TRASH → 사람 명확 + 선명 (LLM 오판 의심, 단순 흐림 보호)
+    if llm_grade == "TRASH" and fc > 0 and lap >= 100:
+        return "MEMORY+", "_llm_trash_face_sharp"
+
+    return llm_grade, ""
+
+
 def _auto_grade(llm_grade: str, signals: Signals) -> tuple[str, str]:
-    """자동 등급 결정 (CLAUDE.md "자동 분류 룰" 결정 트리 구현).
+    """자동 등급 결정 (CLAUDE.md "자동 분류 룰" + grade_classification_spec.md).
 
     우선순위:
       1. 영상 길이 (< 3초 TRASH / >= 3초 EVENT-L)
       2. is_screenshot (UI 스크린샷)
-      3. LLM 응답 (있으면 그대로 — BEST/EVENT/FOOD/TRASH)
+      3. LLM 응답 + sanity check (있으면 그대로 또는 보정)
       4. Auto 신호 fallback (face / camera_make / laplacian)
     """
     if signals.is_video and 0 < signals.duration_seconds < 3.0:
@@ -217,6 +303,10 @@ def _auto_grade(llm_grade: str, signals: Signals) -> tuple[str, str]:
     if signals.is_screenshot:
         return "TRASH", "auto_screenshot"
     if llm_grade in LLM_GRADES:
+        # LLM 응답 sanity check (보정 룰)
+        corrected, suffix = _llm_sanity_check(llm_grade, signals)
+        if suffix:
+            return corrected, f"llm_corrected{suffix}"
         return llm_grade, "llm_ensemble"
 
     # LLM 미응답 → auto 신호 fallback
