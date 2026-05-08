@@ -48,6 +48,54 @@ NON_ICLOUD_GRADES = ("FOOD", "MEMORY-", "NORMAL", "TRASH")
 BATCH_CHUNK = 200
 
 
+def delete_via_meta_fallback(
+    entries: list[tuple[str, str, datetime]],
+) -> tuple[int, int, str | None]:
+    """2026-05-08 P0-C: osxphotos 매칭 실패 자산을 PhotoCleanup delete-by-meta 직접 매칭+삭제."""
+    if not entries:
+        return 0, 0, None
+    total_proc = total_fail = 0
+    last_err: str | None = None
+
+    for i in range(0, len(entries), BATCH_CHUNK):
+        chunk = entries[i:i + BATCH_CHUNK]
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".tsv"
+        ) as fin:
+            for _, filename, ts in chunk:
+                fin.write(f"{filename}\t{ts.isoformat()}\n")
+            in_path = fin.name
+        out_path = in_path + ".out"
+
+        try:
+            subprocess.run(
+                ["open", "-W", "-a", PHOTO_CLEANUP_APP,
+                 "--args", "delete-by-meta",
+                 "--input", in_path, "--output", out_path],
+                capture_output=True, text=True, timeout=1800,
+            )
+            try:
+                with open(out_path) as f:
+                    res = json.load(f)
+                total_proc += res.get("processed", 0)
+                total_fail += res.get("failed", 0) + res.get("not_found", 0)
+                if res.get("error"):
+                    last_err = res["error"]
+            except (FileNotFoundError, json.JSONDecodeError):
+                total_fail += len(chunk)
+                last_err = "no_response"
+        except Exception as e:
+            total_fail += len(chunk)
+            last_err = f"{type(e).__name__}:{e}"
+        finally:
+            for p in (in_path, out_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+    return total_proc, total_fail, last_err
+
+
 def fetch_targets(limit: int) -> list[tuple[str, str]]:
     """4등급 외 자산 中 Mac 미처리. (asset_id, grade)."""
     sql = """
@@ -167,13 +215,19 @@ def delete_via_photokit(uuids: list[str]) -> tuple[int, int, str | None]:
     return total_proc, total_fail, last_err
 
 
-def record_audit(asset_id: str, success: bool, reason: str) -> None:
+def record_audit(
+    asset_id: str, success: bool, reason: str,
+    reason_category: str | None = None,
+) -> None:
+    if reason_category is None:
+        reason_category = "mac_non_icloud_ok" if success else "mac_other_error"
     with psycopg.connect(DB_DSN, autocommit=True) as conn, conn.cursor() as cur:
         cur.execute("""
             INSERT INTO photo.cleanup_audit
-              (asset_id, immich_id, device, success, reason, device_deleted_at)
-            VALUES (%s::uuid, NULL, 'mac-photos', %s, %s, NOW())
-        """, (asset_id, success, reason[:200]))
+              (asset_id, immich_id, device, success, reason,
+               reason_category, reason_detail, device_deleted_at)
+            VALUES (%s::uuid, NULL, 'mac-photos', %s, %s, %s, %s, NOW())
+        """, (asset_id, success, reason[:200], reason_category, reason))
 
 
 def main() -> None:
@@ -207,7 +261,8 @@ def main() -> None:
     print(f"   Mac Photos: {len(db.photos())}장 / unique filenames: {len(idx)}")
 
     matched: list[tuple[str, str, str, str]] = []  # (aid, grade, filename, mac_uuid)
-    no_meta = no_match = 0
+    fallback_meta: list[tuple[str, str, str, datetime]] = []  # (aid, grade, filename, ts)
+    no_meta = 0
     for aid in asset_ids:
         meta = meta_map.get(aid)
         if not meta:
@@ -215,12 +270,13 @@ def main() -> None:
             continue
         filename, ts = meta
         uuid = find_mac_uuid(idx, filename, ts)
-        if not uuid:
-            no_match += 1
-            continue
-        matched.append((aid, grade_map[aid], filename, uuid))
+        if uuid:
+            matched.append((aid, grade_map[aid], filename, uuid))
+        else:
+            # osxphotos 미인덱싱 자산 (iCloud-only 등) → meta-fallback (P0-C)
+            fallback_meta.append((aid, grade_map[aid], filename, ts))
 
-    print(f"\n📊 매칭: {len(matched)}장 / 미매칭: {no_match} / no_meta: {no_meta}")
+    print(f"\n📊 osxphotos 매칭: {len(matched)} / meta-fallback: {len(fallback_meta)} / no_meta: {no_meta}")
 
     if args.dry_run:
         by_g: dict[str, int] = {}
@@ -232,18 +288,36 @@ def main() -> None:
         print("\n💡 dry-run — Mac Photos 변경 X")
         return
 
-    if not matched:
+    if not matched and not fallback_meta:
         return
 
     print(f"\n🗑  PhotoCleanup.app PhotoKit 실 삭제 ...")
-    uuids = [u for _, _, _, u in matched]
-    processed, failed, err = delete_via_photokit(uuids)
-    print(f"   processed={processed} failed={failed}{' err='+err if err else ''}")
+    # 1차: UUID 매칭 batch
+    processed = failed = 0
+    err: str | None = None
+    if matched:
+        uuids = [u for _, _, _, u in matched]
+        processed, failed, err = delete_via_photokit(uuids)
+        print(f"   UUID 경로: processed={processed} failed={failed}"
+              f"{' err='+err if err else ''}")
+        if processed > 0:
+            for aid, grade, filename, _ in matched[:processed]:
+                record_audit(aid, True, f"mac_non_icloud:{grade}:{filename}",
+                             reason_category="mac_non_icloud_ok")
 
-    # cleanup_audit 기록 — chunk 단위 처리, processed 만큼 success
-    if processed > 0:
-        for aid, grade, filename, _ in matched[:processed]:
-            record_audit(aid, True, f"mac_non_icloud:{grade}:{filename}")
+    # 2차: meta-fallback (P0-C 2026-05-08)
+    fb_processed = fb_failed = 0
+    fb_err: str | None = None
+    if fallback_meta:
+        fb_processed, fb_failed, fb_err = delete_via_meta_fallback(
+            [(aid, fn, ts) for aid, _, fn, ts in fallback_meta]
+        )
+        print(f"   meta-fallback: processed={fb_processed} failed={fb_failed}"
+              f"{' err='+fb_err if fb_err else ''}")
+        if fb_processed > 0:
+            for aid, grade, filename, _ in fallback_meta[:fb_processed]:
+                record_audit(aid, True, f"mac_non_icloud_meta:{grade}:{filename}",
+                             reason_category="mac_non_icloud_meta_ok")
 
     print(f"\n✅ 완료: Mac Photos 휴지통 → iCloud → iPhone (30일 안전망)")
 

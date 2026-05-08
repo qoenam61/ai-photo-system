@@ -124,6 +124,64 @@ PHOTO_CLEANUP_APP = "/Users/jw-home/Applications/PhotoCleanup.app"
 BATCH_CHUNK = 200  # PhotoKit batch 한계 (AppleScript 50보다 큼 — Apple 공식 API)
 
 
+def delete_via_meta_fallback(
+    entries: list[tuple[str, str, datetime]],
+) -> tuple[int, int, str | None]:
+    """2026-05-08 P0-C: osxphotos 매칭 실패 자산을 PhotoCleanup delete-by-meta로 직접 매칭+삭제.
+
+    osxphotos PhotosDB는 iCloud-only 자산을 인덱싱 못하지만, PHAsset.fetchAssets는 OK.
+    entries: [(asset_id, filename, fileCreatedAt), ...]
+    Returns: (processed, failed, last_error).
+    """
+    import json as _json
+    import tempfile
+
+    if not entries:
+        return 0, 0, None
+
+    total_proc = total_fail = 0
+    last_err: str | None = None
+
+    for i in range(0, len(entries), BATCH_CHUNK):
+        chunk = entries[i:i + BATCH_CHUNK]
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".tsv"
+        ) as fin:
+            for _, filename, ts in chunk:
+                fin.write(f"{filename}\t{ts.isoformat()}\n")
+            in_path = fin.name
+        out_path = in_path + ".out"
+
+        try:
+            subprocess.run(
+                ["open", "-W", "-a", PHOTO_CLEANUP_APP,
+                 "--args", "delete-by-meta",
+                 "--input", in_path, "--output", out_path],
+                capture_output=True, text=True, timeout=900,
+            )
+            try:
+                with open(out_path) as f:
+                    res = _json.load(f)
+                total_proc += res.get("processed", 0)
+                total_fail += res.get("failed", 0) + res.get("not_found", 0)
+                if res.get("error"):
+                    last_err = res["error"]
+            except (FileNotFoundError, _json.JSONDecodeError):
+                total_fail += len(chunk)
+                last_err = "no_response"
+        except Exception as e:
+            total_fail += len(chunk)
+            last_err = f"{type(e).__name__}:{e}"
+        finally:
+            for p in (in_path, out_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+
+    return total_proc, total_fail, last_err
+
+
 def delete_via_photokit(uuids: list[str]) -> tuple[int, int, int, str | None]:
     """PhotoCleanup.app 번들 → PhotoKit Framework 실 삭제.
 
@@ -198,13 +256,18 @@ def delete_via_photokit(uuids: list[str]) -> tuple[int, int, int, str | None]:
 
 def record_audit(
     asset_id: str, immich_id: str, success: bool, reason: str, ts: str,
+    reason_category: str | None = None,
 ) -> None:
+    if reason_category is None:
+        reason_category = "mac_photokit_ok" if success else "mac_other_error"
     with psycopg.connect(DB_DSN, autocommit=True) as conn, conn.cursor() as cur:
         cur.execute("""
             INSERT INTO photo.cleanup_audit
-              (asset_id, immich_id, device, success, reason, device_deleted_at)
-            VALUES (%s::uuid, %s, 'mac-photos', %s, %s, %s::timestamptz)
-        """, (asset_id, immich_id or None, success, reason, ts))
+              (asset_id, immich_id, device, success, reason,
+               reason_category, reason_detail, device_deleted_at)
+            VALUES (%s::uuid, %s, 'mac-photos', %s, %s, %s, %s, %s::timestamptz)
+        """, (asset_id, immich_id or None, success, reason,
+              reason_category, reason, ts))
 
 
 def main() -> None:
@@ -279,9 +342,10 @@ def main() -> None:
     print(f"\n🗑  PhotoCleanup.app PhotoKit 실 삭제 ...")
     now = datetime.now().isoformat()
 
-    # 매칭 결과 수집
+    # 매칭 결과 수집 — osxphotos UUID 매칭 vs meta-fallback 분리
     matched: list[tuple[str, str, str, str]] = []  # (aid, immich_id, filename, mac_uuid)
-    not_found = no_meta = 0
+    fallback_meta: list[tuple[str, str, str, datetime]] = []  # (aid, immich_id, filename, ts)
+    no_meta = 0
     for it in items:
         aid = it["asset_id"]
         immich_id = it.get("immich_id", "")
@@ -291,28 +355,53 @@ def main() -> None:
             continue
         filename, ts = meta
         uuid = find_mac_photo_uuid(idx, filename, ts)
-        if not uuid:
-            not_found += 1
-            continue
-        matched.append((aid, immich_id, filename, uuid))
+        if uuid:
+            matched.append((aid, immich_id, filename, uuid))
+        else:
+            # osxphotos에 없음 → PhotoCleanup delete-by-meta fallback (iCloud-only 자산 등)
+            fallback_meta.append((aid, immich_id, filename, ts))
 
-    # PhotoKit batch delete
+    # 1차: PhotoKit UUID batch delete
     uuids = [u for _, _, _, u in matched]
     processed, failed, batch_not_found, err = delete_via_photokit(uuids)
 
-    # cleanup_audit 기록
-    # processed = 실제 삭제된 수. uuid → asset_id 매핑이 batch 단위라 정확한 식별 불가 →
-    # 매칭 자산 전체에 대해 success=True 기록 (PhotoKit은 안전한 중복 호출 — 재실행 시 not_found)
     if processed > 0:
         for aid, immich_id, filename, _ in matched[:processed]:
             record_audit(aid, immich_id, True,
-                         f"mac_photos_delete:{filename}", now)
+                         f"mac_photos_delete:{filename}", now,
+                         reason_category="mac_photokit_ok")
 
-    print(f"\n📊 매칭: {len(matched)}장 / PhotoKit 삭제: {processed}"
-          f" / 실패: {failed} / 미발견: {batch_not_found}"
-          f" / 미매칭: {not_found} / no_meta: {no_meta}")
+    # 2차: meta-fallback (P0-C 2026-05-08) — iCloud-only 자산 매칭
+    fb_processed = fb_failed = 0
+    fb_err: str | None = None
+    if fallback_meta:
+        fb_processed, fb_failed, fb_err = delete_via_meta_fallback(
+            [(aid, fn, ts) for aid, _, fn, ts in fallback_meta]
+        )
+        # delete-by-meta는 batch 단위 결과만 반환 → 처리된 수만큼 audit 기록.
+        # 어떤 자산이 매칭됐는지 정확 식별 불가하나, 재호출은 멱등(이미 삭제 → not_found)
+        for aid, immich_id, filename, _ in fallback_meta[:fb_processed]:
+            record_audit(aid, immich_id, True,
+                         f"mac_photos_meta:{filename}", now,
+                         reason_category="mac_photokit_meta_ok")
+
+    total_targets = len(items)
+    osx_rate = (len(matched) / total_targets * 100) if total_targets else 0.0
+    fb_rate = (fb_processed / total_targets * 100) if total_targets else 0.0
+    overall_rate = ((processed + fb_processed) / total_targets * 100) if total_targets else 0.0
+    print(f"\n📊 osxphotos 매칭: {len(matched)} ({osx_rate:.1f}%) → PhotoKit 삭제 {processed}")
+    print(f"   meta-fallback: {len(fallback_meta)} → 삭제 {fb_processed} ({fb_rate:.1f}%)")
+    print(f"   합계 삭제율: {overall_rate:.1f}% / no_meta: {no_meta}")
     if err:
-        print(f"   마지막 오류: {err}")
+        print(f"   PhotoKit 오류: {err}")
+    if fb_err:
+        print(f"   meta-fallback 오류: {fb_err}")
+
+    # 전체 매칭률(osx + meta-fallback) < 10% 시만 경고 — meta-fallback이 작동하면 정상화됨
+    if total_targets >= 10 and overall_rate < 10.0:
+        print(f"\n⚠️  합계 삭제율 {overall_rate:.1f}% — PhotoCleanup.app 권한 또는 "
+              f"Mac Photos 인덱싱 문제 확인 필요.")
+
     print(f"\n   → Mac 휴지통 → iCloud 동기 → iPhone 휴지통 (30일 안전망)")
 
 
