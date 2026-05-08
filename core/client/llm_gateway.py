@@ -150,6 +150,10 @@ def vision_classify(
                      max_tokens=max_tokens, timeout=30.0)
         content = body["choices"][0]["message"]["content"]
         payload = _parse_json(content)
+        # 2026-05-09: _model을 raw에 보존 — classifier.py가 used_model 추출에 사용.
+        # 이전: payload만 raw로 전달 → _model 손실 → 항상 'qwen' 잘못 집계.
+        payload["_model"] = body.get("_model") or body.get("model", "")
+        payload["_role"] = "photo/classify-fb"
         return VisionResponse(
             grade=str(payload.get("grade", "")).strip(),
             confidence=int(payload.get("confidence", 0)),
@@ -157,8 +161,13 @@ def vision_classify(
             raw=payload,
             contains_child=bool(payload.get("contains_child", False)),
         )
-    except Exception:
-        pass
+    except Exception as e:
+        # silent fallback이 라우팅 진단을 어렵게 함 — warning 추가
+        import logging
+        logging.getLogger(__name__).warning(
+            "vision_classify Groq fail → Qwen fallback: %s: %s",
+            type(e).__name__, str(e)[:200],
+        )
 
     # 2차 fallback: Qwen VL (로컬) — Groq throttle/실패 시
     # 장중 보호: Qwen 로컬 호출 차단 (트레이딩 ollama 자원 보호)
@@ -172,6 +181,8 @@ def vision_classify(
                      max_tokens=max_tokens, timeout=timeout)
         content = body["choices"][0]["message"]["content"]
         payload = _parse_json(content)
+        payload["_model"] = body.get("_model") or body.get("model", "")
+        payload["_role"] = "photo/classify"
         return VisionResponse(
             grade=str(payload.get("grade", "")).strip(),
             confidence=int(payload.get("confidence", 0)),

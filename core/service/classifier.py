@@ -354,9 +354,12 @@ class Classifier:
             r = vision_classify(PROMPT, "이 사진의 등급?", img_b64)
             if r.grade in LLM_GRADES:
                 grade, conf, ms, contains_child = r.grade, r.confidence, r.elapsed_ms, r.contains_child
-                # raw에 model 힌트가 없으면 'qwen' 기본 (primary = Qwen VL)
-                used_model = r.raw.get("_model", "qwen")
-                if "groq" in used_model or "llama" in used_model:
+                # 2026-05-09 P1-F bugfix: _role(LiteLLM 모델 그룹) 기반 정확 판정.
+                # photo/classify-fb → groq / photo/classify → qwen.
+                # 이전: _model 누락(빈 값) → 'qwen' 기본값 → 항상 잘못 집계.
+                role = r.raw.get("_role", "")
+                model = r.raw.get("_model", "")
+                if "classify-fb" in role or "groq" in model.lower() or "llama" in model.lower():
                     used_model = "groq"
                 else:
                     used_model = "qwen"
