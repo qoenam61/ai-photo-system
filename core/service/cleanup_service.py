@@ -153,11 +153,17 @@ def mark_processed(
     reason: str,
     reclaimed_bytes: int,
     dsn: str = DB_DSN,
+    reason_category: str | None = None,
 ) -> int:
     """cleanup_queue.processed_at + cleanup_audit row 기록.
 
+    reason_category: 카디널리티 ≤ 30 카테고리 (hdd_purge / verify_fail 등).
+    None이면 success/reason에서 자동 추론. 2026-05-08 P0-B.
     Returns audit_id.
     """
+    if reason_category is None:
+        reason_category = "hdd_purge" if success else "hdd_other_error"
+
     with psycopg.connect(dsn, autocommit=True) as conn, conn.cursor() as cur:
         if success:
             cur.execute("""
@@ -168,10 +174,12 @@ def mark_processed(
         cur.execute("""
             INSERT INTO photo.cleanup_audit
               (asset_id, immich_id, device, success, reason,
+               reason_category, reason_detail,
                reclaimed_bytes, device_deleted_at)
-            VALUES (%s::uuid, %s, 'hdd', %s, %s, %s, NOW())
+            VALUES (%s::uuid, %s, 'hdd', %s, %s, %s, %s, %s, NOW())
             RETURNING id
-        """, (asset_id, immich_id or None, success, reason, reclaimed_bytes))
+        """, (asset_id, immich_id or None, success, reason,
+              reason_category, reason, reclaimed_bytes))
         return cur.fetchone()[0]
 
 

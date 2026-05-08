@@ -110,6 +110,24 @@ def mark_immich_deleted(immich_id: str, retries: int = 1) -> bool:
     return False
 
 
+_REASON_CATEGORIES_HDD = {
+    "layer5_hdd_purge": "hdd_purge",
+    "verify_fail": "verify_fail",
+    "host_path_missing": "host_path_missing",
+    "unlink_failed": "unlink_failed",
+}
+
+
+def _hdd_reason_category(reason: str, imm_marked_ok: bool) -> str:
+    """reason prefix → category. 2026-05-08 P0-B."""
+    for prefix, category in _REASON_CATEGORIES_HDD.items():
+        if reason.startswith(prefix):
+            if category == "hdd_purge" and not imm_marked_ok:
+                return "hdd_purge_imm_unmarked"
+            return category
+    return "hdd_other_error"
+
+
 def mark_audit(
     queue_id: int,
     asset_id: str,
@@ -120,13 +138,15 @@ def mark_audit(
 ) -> int:
     """cleanup_audit row 기록 + Immich asset.deletedAt 마킹 (orphan 방지).
 
-    Immich 마킹 결과를 reason 에 :imm_marked / :imm_mark_fail 로 표기 (감사 추적).
-    실패해도 cleanup_audit success 자체는 유지 (HDD 삭제 자체는 성공) — 누락분은
-    backfill_immich_deleted_at.py 가 idempotent 보정.
+    reason_detail에 :imm_marked / :imm_mark_fail suffix를 보존 — 카테고리는
+    별도 reason_category 컬럼으로 분리 (2026-05-08 P0-B).
     """
+    imm_ok = True
     if success and immich_id:
         imm_ok = mark_immich_deleted(immich_id)
         reason = f"{reason}:{'imm_marked' if imm_ok else 'imm_mark_fail'}"
+
+    reason_category = _hdd_reason_category(reason, imm_ok)
 
     with psycopg.connect(DB_DSN, autocommit=True) as conn, conn.cursor() as cur:
         if success:
@@ -138,10 +158,12 @@ def mark_audit(
         cur.execute("""
             INSERT INTO photo.cleanup_audit
               (asset_id, immich_id, device, success, reason,
+               reason_category, reason_detail,
                reclaimed_bytes, device_deleted_at)
-            VALUES (%s::uuid, %s, 'hdd', %s, %s, %s, NOW())
+            VALUES (%s::uuid, %s, 'hdd', %s, %s, %s, %s, %s, NOW())
             RETURNING id
-        """, (asset_id, immich_id or None, success, reason, reclaimed_bytes))
+        """, (asset_id, immich_id or None, success, reason,
+              reason_category, reason, reclaimed_bytes))
         audit_id = cur.fetchone()[0]
 
     return audit_id
