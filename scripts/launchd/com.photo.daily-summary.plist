@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.photo.daily-summary</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>cd /Users/jw-home/Work/photo_system/ai-photo-system &amp;&amp; PYTHONPATH=. /Users/jw-home/.local/bin/poetry run python scripts/daily_cleanup_summary.py --telegram &gt;&gt; scripts/_inventory/daily_summary.log 2&gt;&amp;1</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/jw-home/Work/photo_system/ai-photo-system</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/jw-home/Work/photo_system/ai-photo-system/scripts/_inventory/daily_summary.stdout</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/jw-home/Work/photo_system/ai-photo-system/scripts/_inventory/daily_summary.stderr</string>
+</dict>
+</plist>
