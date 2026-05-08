@@ -47,9 +47,12 @@ class WeeklyStats:
     by_grade_total: dict[str, int]
     pending: int
     cleanup_d7: dict[str, int]  # device → count
+    cleanup_failures_d7: dict[str, int]  # reason_category → count (2026-05-08 P1-G)
     reclaimed_mb_d7: float
     protected: int
     phase5_ready: bool
+    # 2026-05-08 P1-F: 모델 라우팅 분포 — Groq/Qwen/ensemble/auto_fallback 비율
+    routing_d7: dict[str, int]
 
 
 def collect_stats() -> WeeklyStats:
@@ -100,6 +103,31 @@ def collect_stats() -> WeeklyStats:
         """)
         protected = cur.fetchone()[0]
 
+        # 2026-05-08 P1-G: cleanup 실패 카테고리 분포 (reason_category 기반)
+        cur.execute("""
+            SELECT reason_category, COUNT(*) FROM photo.cleanup_audit
+            WHERE reported_at > NOW() - INTERVAL '7 days' AND NOT success
+            GROUP BY reason_category ORDER BY 2 DESC
+        """)
+        cleanup_failures_d7 = {c: n for c, n in cur.fetchall()}
+
+        # 2026-05-08 P1-F: 모델 라우팅 — Groq vs Qwen vs ensemble 분포
+        cur.execute("""
+            SELECT
+              SUM(CASE WHEN grade_source = 'llm_groq' THEN 1 ELSE 0 END) AS groq,
+              SUM(CASE WHEN grade_source = 'llm_qwen' THEN 1 ELSE 0 END) AS qwen,
+              SUM(CASE WHEN grade_source = 'llm_ensemble' THEN 1 ELSE 0 END) AS ensemble,
+              SUM(CASE WHEN grade_source LIKE 'llm_corrected%' THEN 1 ELSE 0 END) AS corrected,
+              SUM(CASE WHEN grade_source LIKE 'auto_%' THEN 1 ELSE 0 END) AS auto_fallback
+            FROM photo.classification
+            WHERE classified_at > NOW() - INTERVAL '7 days'
+        """)
+        g, q, e, c, a = cur.fetchone()
+        routing_d7 = {
+            "groq": g or 0, "qwen": q or 0, "ensemble": e or 0,
+            "corrected": c or 0, "auto_fallback": a or 0,
+        }
+
     from pathlib import Path
     flag = Path(__file__).parent.parent.parent / "scripts" / "_inventory" / "phase5_ready.flag"
 
@@ -111,9 +139,11 @@ def collect_stats() -> WeeklyStats:
         by_grade_total=by_grade_total,
         pending=0,  # 별도 조회는 비싸므로 생략
         cleanup_d7=cleanup_d7,
+        cleanup_failures_d7=cleanup_failures_d7,
         reclaimed_mb_d7=round(reclaimed / 1024 / 1024, 1),
         protected=protected,
         phase5_ready=flag.exists(),
+        routing_d7=routing_d7,
     )
 
 

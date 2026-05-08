@@ -108,6 +108,16 @@ run_step "[10] build_grade_views" bash -c "
   PYTHONPATH=. $POETRY run python scripts/build_grade_views.py 2>&1 | tail -10
 "
 
+# 추가 일일 체크: Groq 라우팅 분포 (3시 정각 회차에서만, 노이즈 방지) — 2026-05-08 P1-F
+if [ "$(date +%H%M)" = "0300" ]; then
+  echo
+  echo "[+] Groq 라우팅 분포 일일 체크"
+  run_step "[+] check_groq_routing" bash -c "
+    set -o pipefail
+    PYTHONPATH=. $POETRY run python scripts/check_groq_routing.py --telegram 2>&1 | tail -10
+  " || true  # 비정상 종료여도 maintenance 전체 FAIL 처리 X
+fi
+
 # .DS_Store 정리 (macOS Finder 자동 생성, 무의미)
 find /Volumes/Immich-Storage/immich-views -name '.DS_Store' -delete 2>/dev/null || true
 
