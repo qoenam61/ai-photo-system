@@ -60,7 +60,8 @@ def fetch_processable(limit: int) -> list[tuple]:
             FROM photo.cleanup_queue q
             JOIN photo.classification c ON c.asset_id = q.asset_id
             LEFT JOIN photo.feedback f
-                   ON f.asset_id = q.asset_id AND f.feedback_type = 'protect'
+                   ON f.asset_id = q.asset_id
+                  AND f.feedback_type IN ('protect', 'restored')
             WHERE q.cancelled = FALSE
               AND q.processed_at IS NULL
               AND q.grace_until <= NOW()

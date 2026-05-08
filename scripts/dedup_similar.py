@@ -80,11 +80,16 @@ def main() -> None:
                 file_size_bytes,
                 COALESCE(laplacian_variance, 0) AS lap,
                 FLOOR(EXTRACT(EPOCH FROM exif_datetime) / {args.window_seconds}) AS time_bucket
-              FROM photo.classification
-              WHERE exif_datetime IS NOT NULL
-                AND grade IN ({grade_filter})
-                AND COALESCE(grade_source, '') NOT LIKE 'dedup_demoted%%'
-                AND COALESCE(grade_source, '') != 'restored_from_dedup'
+              FROM photo.classification c
+              WHERE c.exif_datetime IS NOT NULL
+                AND c.grade IN ({grade_filter})
+                AND COALESCE(c.grade_source, '') NOT LIKE 'dedup_demoted%%'
+                AND COALESCE(c.grade_source, '') != 'restored_from_dedup'
+                AND NOT EXISTS (
+                  SELECT 1 FROM photo.feedback f
+                  WHERE f.asset_id = c.asset_id
+                    AND f.feedback_type IN ('protect', 'restored')
+                )
             ),
             ranked AS (
               SELECT *,

@@ -78,6 +78,8 @@ CREATE INDEX IF NOT EXISTS idx_classification_storage ON photo.classification(st
 CREATE INDEX IF NOT EXISTS idx_classification_sim_group ON photo.classification(similarity_group_id);
 CREATE INDEX IF NOT EXISTS idx_classification_cleanup ON photo.classification(cleanup_grace_until)
     WHERE deleted_from_device_at IS NULL;
+-- 복원 감지 (detect_restored_assets) sha256 매칭 가속
+CREATE INDEX IF NOT EXISTS idx_classification_sha256 ON photo.classification(sha256);
 
 -- ─────────────────────────────────────────────
 -- photo.conversion_log — Layer 0.5 변환 기록
@@ -107,11 +109,16 @@ CREATE INDEX IF NOT EXISTS idx_conversion_quarantine ON photo.conversion_log(qua
 CREATE TABLE IF NOT EXISTS photo.feedback (
     id BIGSERIAL PRIMARY KEY,
     asset_id UUID NOT NULL,
-    feedback_type VARCHAR(30) NOT NULL,  -- 'favorite_added' | 'grade_changed_manual' | 'restored_from_trash'
+    feedback_type VARCHAR(30) NOT NULL,  -- 'protect' | 'restored' (auto_detected) | 'favorite_added' | 'grade_changed_manual'
     old_grade VARCHAR(20),
     new_grade VARCHAR(20),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- protect/restored 매칭 가속 (cleanup_service 보호 검사)
+CREATE INDEX IF NOT EXISTS idx_feedback_asset_type ON photo.feedback(asset_id, feedback_type);
+
+-- 복원 감지 KPI view: scripts/migrate_restoration_audit.sql 별도 적용
+-- (cleanup_audit 테이블 의존이라 init과 분리)
 
 -- ─────────────────────────────────────────────
 -- photo.cleanup_queue — 기기 삭제 대상 (Layer 5/6)

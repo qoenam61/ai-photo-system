@@ -61,7 +61,8 @@ def fetch_targets(limit: int) -> list[tuple[str, str]]:
           )
           AND NOT EXISTS (
             SELECT 1 FROM photo.feedback f
-            WHERE f.asset_id = c.asset_id AND f.feedback_type = 'protect'
+            WHERE f.asset_id = c.asset_id
+              AND f.feedback_type IN ('protect', 'restored')
           )
         ORDER BY c.classified_at DESC
     """

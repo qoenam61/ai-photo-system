@@ -61,7 +61,8 @@ def enqueue_cleanup(
     with psycopg.connect(dsn, autocommit=True) as conn, conn.cursor() as cur:
         cur.execute("""
             SELECT asset_id::text FROM photo.feedback
-            WHERE feedback_type = 'protect' AND asset_id = ANY(%s::uuid[])
+            WHERE feedback_type IN ('protect', 'restored')
+              AND asset_id = ANY(%s::uuid[])
         """, (asset_ids,))
         protected = {r[0] for r in cur.fetchall()}
 
@@ -126,7 +127,8 @@ def fetch_processable_queue(
             FROM photo.cleanup_queue q
             JOIN photo.classification c ON c.asset_id = q.asset_id
             LEFT JOIN photo.feedback f
-                   ON f.asset_id = q.asset_id AND f.feedback_type = 'protect'
+                   ON f.asset_id = q.asset_id
+                  AND f.feedback_type IN ('protect', 'restored')
             WHERE q.cancelled = FALSE
               AND q.processed_at IS NULL
               AND q.grace_until <= NOW()

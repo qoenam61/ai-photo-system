@@ -389,7 +389,8 @@ def cleanup_candidates(
                    c.classified_at::text,
                    EXISTS(
                      SELECT 1 FROM photo.feedback f
-                     WHERE f.asset_id = c.asset_id AND f.feedback_type = 'protect'
+                     WHERE f.asset_id = c.asset_id
+                       AND f.feedback_type IN ('protect', 'restored')
                    ) AS is_protected
             FROM photo.classification c
             WHERE c.grade = ANY(%s)
@@ -439,12 +440,14 @@ def cleanup_candidates(
 class ProtectRequest(BaseModel):
     asset_id: str
     note: str | None = None
+    feedback_type: str = "protect"  # 'protect' (수동) | 'restored' (auto_detected)
 
 
 class ProtectResponse(BaseModel):
     asset_id: str
     protected: bool
     protected_at: str | None = None
+    feedback_type: str | None = None
 
 
 class CleanupResultRequest(BaseModel):
@@ -539,7 +542,18 @@ def nl_query(req: NLQueryRequest) -> NLQueryResponse:
 
 @app.post("/feedback/protect", response_model=ProtectResponse)
 def protect_asset(req: ProtectRequest) -> ProtectResponse:
-    """asset 보호 표시 — cleanup_candidates에서 영구 제외."""
+    """asset 보호 표시 — cleanup_candidates에서 영구 제외.
+
+    feedback_type:
+      'protect'  — 사용자 명시 보호 (기본값, 기존 호환)
+      'restored' — detect_restored_assets.py 자동 감지 (DD-restored-asset-protection)
+    """
+    if req.feedback_type not in {"protect", "restored"}:
+        raise HTTPException(
+            400,
+            f"feedback_type must be 'protect' or 'restored', got {req.feedback_type!r}",
+        )
+
     with psycopg.connect(DB_DSN, autocommit=True) as conn, conn.cursor() as cur:
         # asset_id 존재 확인
         cur.execute(
@@ -548,23 +562,28 @@ def protect_asset(req: ProtectRequest) -> ProtectResponse:
         if not cur.fetchone():
             raise HTTPException(404, f"asset_id {req.asset_id} not in classification")
 
-        # idempotent — 이미 protect면 created_at만 갱신
         cur.execute("""
             INSERT INTO photo.feedback (asset_id, feedback_type, created_at)
-            VALUES (%s, 'protect', NOW())
+            VALUES (%s, %s, NOW())
             RETURNING created_at::text
-        """, (req.asset_id,))
+        """, (req.asset_id, req.feedback_type))
         ts = cur.fetchone()[0]
-    return ProtectResponse(asset_id=req.asset_id, protected=True, protected_at=ts)
+    return ProtectResponse(
+        asset_id=req.asset_id,
+        protected=True,
+        protected_at=ts,
+        feedback_type=req.feedback_type,
+    )
 
 
 @app.delete("/feedback/protect/{asset_id}", response_model=ProtectResponse)
 def unprotect_asset(asset_id: str) -> ProtectResponse:
-    """보호 해제."""
+    """보호 해제 (protect + restored 모두 제거)."""
     with psycopg.connect(DB_DSN, autocommit=True) as conn, conn.cursor() as cur:
         cur.execute("""
             DELETE FROM photo.feedback
-            WHERE asset_id = %s AND feedback_type = 'protect'
+            WHERE asset_id = %s
+              AND feedback_type IN ('protect', 'restored')
         """, (asset_id,))
         deleted = cur.rowcount
     return ProtectResponse(
@@ -578,10 +597,11 @@ def list_protected(limit: int = 200) -> dict:
     with psycopg.connect(DB_DSN) as conn, conn.cursor() as cur:
         cur.execute("""
             SELECT DISTINCT ON (f.asset_id)
-                   f.asset_id::text, f.created_at::text, c.grade
+                   f.asset_id::text, f.created_at::text, c.grade,
+                   f.feedback_type
             FROM photo.feedback f
             JOIN photo.classification c ON f.asset_id = c.asset_id
-            WHERE f.feedback_type = 'protect'
+            WHERE f.feedback_type IN ('protect', 'restored')
             ORDER BY f.asset_id, f.created_at DESC
             LIMIT %s
         """, (limit,))
@@ -589,8 +609,8 @@ def list_protected(limit: int = 200) -> dict:
     return {
         "count": len(rows),
         "items": [
-            {"asset_id": aid, "protected_at": ts, "grade": g}
-            for aid, ts, g in rows
+            {"asset_id": aid, "protected_at": ts, "grade": g, "feedback_type": ft}
+            for aid, ts, g, ft in rows
         ],
     }
 
