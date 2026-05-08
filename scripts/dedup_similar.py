@@ -43,7 +43,11 @@ DB_DSN = (
     "user=trading_user password=RyIokQY7bV3y7SEsyFLu2Oa6"
 )
 
-DEDUP_FROM = ["BEST", "EVENT", "EVENT-L", "MEMORY+", "FOOD", "MEMORY-", "NORMAL"]
+# 2026-05-08 P1-E 보강: 사용자 환원 1,599장의 93%가 EVENT/EVENT-L burst.
+# 행사 사진 5초 burst는 사용자가 여러 컷 보존을 원하므로 dedup_5s 제외.
+# (BEST는 베스트컷이 살아남으므로 안전 — 같은 장면 burst 한정)
+DEDUP_FROM = ["BEST", "MEMORY+", "FOOD", "MEMORY-", "NORMAL"]
+EVENT_PRESERVED_GRADES = ("EVENT", "EVENT-L")
 
 DEMOTE = {
     "BEST":    "MEMORY+",
@@ -103,9 +107,10 @@ def main() -> None:
                 ) AS group_size
               FROM bucketed
             )
+            -- group_size >= 3: 진짜 burst만 처리 (단순 2장 쌍 보호 — 2026-05-08 P1-E)
             SELECT grade, asset_id::text, group_size, rn
             FROM ranked
-            WHERE rn > 1 AND group_size > 1
+            WHERE rn > 1 AND group_size >= 3
         """)
         candidates = cur.fetchall()
 
