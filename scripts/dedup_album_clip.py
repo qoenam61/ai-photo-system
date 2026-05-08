@@ -90,10 +90,13 @@ def fetch_immich_mapping() -> dict[str, str]:
 
 
 def fetch_album_members(cur) -> dict[int, tuple[str, list[str]]]:
+    # dedup_excluded=TRUE는 이전 회차에서 영구 제외된 자산 → 다시 조회 X.
+    # build_albums가 ON CONFLICT로 row를 다시 만들어도 dedup_excluded 플래그 유지.
     cur.execute("""
         SELECT a.id, a.name, ARRAY_AGG(am.asset_id::text)
         FROM photo.album a
         JOIN photo.album_member am ON a.id = am.album_id
+        WHERE am.dedup_excluded = FALSE
         GROUP BY a.id, a.name
         ORDER BY a.id
     """)
@@ -198,13 +201,18 @@ def main() -> None:
 
         if not args.dry_run and to_remove:
             with conn.cursor() as cur:
+                # 영구 제외 마킹 — DELETE 대신 UPDATE (멱등). build_albums가
+                # 같은 자산을 다시 INSERT해도 dedup_excluded=TRUE 유지.
                 cur.execute(
-                    """DELETE FROM photo.album_member
-                       WHERE album_id = %s AND asset_id = ANY(%s::uuid[])""",
+                    """UPDATE photo.album_member
+                       SET dedup_excluded = TRUE,
+                           dedup_at = COALESCE(dedup_at, NOW())
+                       WHERE album_id = %s AND asset_id = ANY(%s::uuid[])
+                         AND dedup_excluded = FALSE""",
                     (album_id, to_remove),
                 )
 
-    print(f"\n총 제거: {total_removed}장")
+    print(f"\n총 신규 제외: {total_removed}장")
     if args.dry_run:
         print("💡 dry-run — DB 변경 X")
     conn.close()

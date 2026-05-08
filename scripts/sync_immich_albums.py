@@ -134,7 +134,7 @@ def main() -> None:
             added = add_assets(client, album_id, asset_ids)
             print(f"   {album_name:18s} → {added}/{len(asset_ids)}장 추가")
 
-        # 4. 추억앨범 동기화
+        # 4. 추억앨범 동기화 (dedup_excluded 자산 제외 — 2026-05-08 P0-A)
         print("\n3. 추억앨범 동기화...")
         conn = psycopg.connect(DB_DSN)
         with conn.cursor() as cur:
@@ -142,6 +142,7 @@ def main() -> None:
                 SELECT a.name, ARRAY_AGG(am.asset_id::text)
                 FROM photo.album a
                 JOIN photo.album_member am ON a.id = am.album_id
+                WHERE am.dedup_excluded = FALSE
                 GROUP BY a.id, a.name
                 ORDER BY a.album_type, a.name
             """)

@@ -107,7 +107,10 @@ def build_year_albums(conn) -> int:
 
 
 def update_album_stats(conn) -> None:
-    """앨범 메타 갱신 (asset_count, started_at, ended_at, cover_asset_id)."""
+    """앨범 메타 갱신 (asset_count, started_at, ended_at, cover_asset_id).
+
+    dedup_excluded=TRUE 멤버는 통계·cover 후보에서 제외 (2026-05-08 P0-A).
+    """
     with conn.cursor() as cur:
         cur.execute("""
             UPDATE photo.album a SET
@@ -126,12 +129,14 @@ def update_album_stats(conn) -> None:
                         FROM photo.album_member am2
                         JOIN photo.classification c2 ON am2.asset_id = c2.asset_id
                         WHERE am2.album_id = am.album_id
+                          AND am2.dedup_excluded = FALSE
                           AND c2.grade IN ('EVENT', 'BEST')
                         ORDER BY c2.confidence DESC NULLS LAST, c2.classified_at
                         LIMIT 1
                     ) AS cover
                 FROM photo.album_member am
                 JOIN photo.classification c ON am.asset_id = c.asset_id
+                WHERE am.dedup_excluded = FALSE
                 GROUP BY am.album_id
             ) sub
             WHERE a.id = sub.album_id
