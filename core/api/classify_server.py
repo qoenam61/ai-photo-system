@@ -67,6 +67,23 @@ def _resolve_path(p: str) -> Path:
     return Path(p)
 
 
+def _infer_audit_category(device: str, success: bool) -> str:
+    """device + success → reason_category 기본값. 2026-05-08 P0-B.
+
+    호출자가 더 구체적인 카테고리(verify_fail, mac_album_error 등)를 알고 있으면
+    req.reason_category로 명시 — 그 값이 우선.
+    """
+    if device == "hdd":
+        return "hdd_purge" if success else "hdd_other_error"
+    if device.startswith("mac"):
+        return "mac_photokit_ok" if success else "mac_other_error"
+    if device.startswith("iphone"):
+        return "iphone_ok" if success else "iphone_error"
+    if device.startswith("galaxy"):
+        return "galaxy_ok" if success else "galaxy_error"
+    return "ok" if success else "other_error"
+
+
 _classifier: Classifier | None = None
 
 
@@ -102,8 +119,42 @@ class ClassifyResponse(BaseModel):
     camera_make: str = ""
 
 
+def _routing_distribution(hours: int) -> dict:
+    """최근 N시간 내 grade_source 별 분류 카운트 (LLM 모델 라우팅 가시화).
+
+    2026-05-08 P1-F: Groq/Qwen 라우팅 의도 vs 실제 분포 모니터링.
+    """
+    try:
+        with psycopg.connect(DB_DSN) as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT grade_source, COUNT(*)
+                FROM photo.classification
+                WHERE classified_at > NOW() - (%s || ' hours')::interval
+                GROUP BY grade_source
+                ORDER BY 2 DESC
+            """, (str(hours),))
+            return dict(cur.fetchall())
+    except Exception:
+        return {}
+
+
 @app.get("/health")
 def health() -> dict:
+    dist_24h = _routing_distribution(24)
+    dist_7d = _routing_distribution(24 * 7)
+    llm_24h = {
+        "groq":     dist_24h.get("llm_groq", 0),
+        "qwen":     dist_24h.get("llm_qwen", 0),
+        "ensemble": dist_24h.get("llm_ensemble", 0),
+        "corrected": sum(v for k, v in dist_24h.items() if k.startswith("llm_corrected")),
+        "auto_fallback": sum(v for k, v in dist_24h.items() if k.startswith("auto_")),
+    }
+    llm_7d = {
+        "groq":     dist_7d.get("llm_groq", 0),
+        "qwen":     dist_7d.get("llm_qwen", 0),
+        "ensemble": dist_7d.get("llm_ensemble", 0),
+    }
+
     return {
         "ok": True,
         "qwen_url": os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate"),
@@ -114,6 +165,10 @@ def health() -> dict:
         ),
         "policy": "v3.13 VISION_MODEL_CHAIN dynamic routing",
         "path_mappings": PATH_MAPPINGS,
+        "routing": {
+            "24h": llm_24h,
+            "7d": llm_7d,
+        },
     }
 
 
@@ -456,6 +511,7 @@ class CleanupResultRequest(BaseModel):
     device: str  # "iphone-jw" | "galaxy-eunju" 등
     success: bool
     reason: str | None = None
+    reason_category: str | None = None  # 2026-05-08 P0-B (정규화)
     reclaimed_bytes: int | None = None
     device_deleted_at: str  # ISO 8601
 
@@ -474,16 +530,21 @@ def cleanup_result(req: CleanupResultRequest) -> CleanupResultResponse:
     iOS Shortcut / MacroDroid가 디바이스 사진 삭제 후 호출.
     photo.cleanup_audit에 기록 + 실패 시 통계 누적.
     """
+    # 카테고리 자동 추론 (디바이스 + 성공 여부 기반) — req.reason_category 명시 시 우선
+    category = req.reason_category or _infer_audit_category(req.device, req.success)
+
     with psycopg.connect(DB_DSN, autocommit=True) as conn, conn.cursor() as cur:
         cur.execute("""
             INSERT INTO photo.cleanup_audit
               (asset_id, immich_id, device, success, reason,
+               reason_category, reason_detail,
                reclaimed_bytes, device_deleted_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s::timestamptz)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::timestamptz)
             RETURNING id, reported_at::text
         """, (
             req.asset_id, req.immich_id, req.device, req.success,
-            req.reason, req.reclaimed_bytes, req.device_deleted_at,
+            req.reason, category, req.reason,
+            req.reclaimed_bytes, req.device_deleted_at,
         ))
         audit_id, reported_at = cur.fetchone()
 
