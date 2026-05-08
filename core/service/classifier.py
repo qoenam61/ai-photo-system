@@ -287,18 +287,29 @@ def _llm_sanity_check(llm_grade: str, signals: Signals) -> tuple[str, str]:
     return llm_grade, ""
 
 
+VIDEO_SHORT_THRESHOLD = 3.0   # < 3s → TRASH
+VIDEO_LONG_THRESHOLD = 10.0   # ≥ 10s → EVENT-L (행사). 3-10s는 MEMORY+ (짧은 일상 영상)
+
+
 def _auto_grade(llm_grade: str, signals: Signals) -> tuple[str, str]:
     """자동 등급 결정 (CLAUDE.md "자동 분류 룰" + grade_classification_spec.md).
 
     우선순위:
-      1. 영상 길이 (< 3초 TRASH / >= 3초 EVENT-L)
+      1. 영상 길이 (2026-05-08 P1-D 세분화):
+         < 3초              → TRASH (auto_short_video)
+         3-10초              → MEMORY+ (auto_short_clip — 일상 영상, iCloud 미동기)
+         ≥ 10초             → EVENT-L (auto_video — 행사 영상, iCloud 동기)
       2. is_screenshot (UI 스크린샷)
       3. LLM 응답 + sanity check (있으면 그대로 또는 보정)
       4. Auto 신호 fallback (face / camera_make / laplacian)
     """
-    if signals.is_video and 0 < signals.duration_seconds < 3.0:
+    if signals.is_video and 0 < signals.duration_seconds < VIDEO_SHORT_THRESHOLD:
         return "TRASH", "auto_short_video"
-    if signals.is_video and signals.duration_seconds >= 3.0:
+    if signals.is_video and (
+        VIDEO_SHORT_THRESHOLD <= signals.duration_seconds < VIDEO_LONG_THRESHOLD
+    ):
+        return "MEMORY+", "auto_short_clip"
+    if signals.is_video and signals.duration_seconds >= VIDEO_LONG_THRESHOLD:
         return "EVENT-L", "auto_video"
     if signals.is_screenshot:
         return "TRASH", "auto_screenshot"
@@ -375,6 +386,9 @@ class Classifier:
     def classify_video(self, path: Path) -> Decision:
         dur = video_duration(path)
         sig = Signals(is_video=True, duration_seconds=dur)
-        if 0 < dur < 3.0:
+        # 2026-05-08 P1-D: 길이 세분화. _auto_grade와 동일 임계 — SSoT 일치.
+        if 0 < dur < VIDEO_SHORT_THRESHOLD:
             return Decision(grade="TRASH", confidence=10, source="auto_short_video")
+        if VIDEO_SHORT_THRESHOLD <= dur < VIDEO_LONG_THRESHOLD:
+            return Decision(grade="MEMORY+", confidence=8, source="auto_short_clip")
         return Decision(grade="EVENT-L", confidence=8, source="auto_video")
