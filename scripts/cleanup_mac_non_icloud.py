@@ -45,7 +45,9 @@ DB_DSN = os.getenv(
 PHOTO_CLEANUP_APP = "/Users/jw-home/Applications/PhotoCleanup.app"
 DATE_TOL = timedelta(seconds=2)
 NON_ICLOUD_GRADES = ("FOOD", "MEMORY-", "NORMAL", "TRASH")
-BATCH_CHUNK = 200
+# 2026-05-08: PhotoCleanup.app delete-by-meta가 200장 batch에서 hang 빈도 높음.
+# 50장으로 줄여 PhotoKit semaphore.wait() 무응답 회피.
+BATCH_CHUNK = 50
 
 
 def delete_via_meta_fallback(
