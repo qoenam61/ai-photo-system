@@ -18,6 +18,7 @@ import argparse
 import os
 import re
 import subprocess
+import time
 from pathlib import Path
 
 import httpx
@@ -82,23 +83,31 @@ def verify_via_service(asset_id: str, client: httpx.Client) -> dict:
     return r.json()
 
 
-def mark_immich_deleted(immich_id: str) -> bool:
+def mark_immich_deleted(immich_id: str, retries: int = 1) -> bool:
     """Immich asset deletedAt 표시 — 향후 cleanup_candidates에서 자동 제외.
 
     HDD 파일 unlink 후 호출. SQL injection 방어: UUID 형식 검증 (NC-2).
+
+    실패 시 1회 재시도 (high-load timeout 방어, 운영 발견 2026-05-07).
+    누락분은 backfill_immich_deleted_at.py 가 idempotent 정합.
     """
     if not immich_id or not UUID_RE.match(immich_id):
         return False
-    try:
-        proc = subprocess.run(
-            ["docker", "exec", "-i", "immich-postgres",
-             "psql", "-U", "postgres", "-d", "immich", "-c",
-             f"UPDATE asset SET \"deletedAt\" = NOW() WHERE id = '{immich_id}'"],
-            capture_output=True, text=True, timeout=10,
-        )
-        return proc.returncode == 0
-    except Exception:
-        return False
+    for attempt in range(retries + 1):
+        try:
+            proc = subprocess.run(
+                ["docker", "exec", "-i", "immich-postgres",
+                 "psql", "-U", "postgres", "-d", "immich", "-c",
+                 f"UPDATE asset SET \"deletedAt\" = NOW() WHERE id = '{immich_id}'"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode == 0:
+                return True
+        except Exception:
+            pass
+        if attempt < retries:
+            time.sleep(0.5)
+    return False
 
 
 def mark_audit(
@@ -109,6 +118,16 @@ def mark_audit(
     reason: str,
     reclaimed_bytes: int,
 ) -> int:
+    """cleanup_audit row 기록 + Immich asset.deletedAt 마킹 (orphan 방지).
+
+    Immich 마킹 결과를 reason 에 :imm_marked / :imm_mark_fail 로 표기 (감사 추적).
+    실패해도 cleanup_audit success 자체는 유지 (HDD 삭제 자체는 성공) — 누락분은
+    backfill_immich_deleted_at.py 가 idempotent 보정.
+    """
+    if success and immich_id:
+        imm_ok = mark_immich_deleted(immich_id)
+        reason = f"{reason}:{'imm_marked' if imm_ok else 'imm_mark_fail'}"
+
     with psycopg.connect(DB_DSN, autocommit=True) as conn, conn.cursor() as cur:
         if success:
             cur.execute("""
@@ -125,9 +144,6 @@ def mark_audit(
         """, (asset_id, immich_id or None, success, reason, reclaimed_bytes))
         audit_id = cur.fetchone()[0]
 
-    # success 시 Immich asset deletedAt 표시 (orphan 방지)
-    if success and immich_id:
-        mark_immich_deleted(immich_id)
     return audit_id
 
 
