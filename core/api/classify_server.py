@@ -211,15 +211,17 @@ IMMICH_DB_DSN = os.getenv(
 IMMICH_API_URL = os.getenv("IMMICH_API_URL", "http://immich-server:2283")
 IMMICH_API_KEY = os.getenv("IMMICH_API_KEY", "")
 
-GRADE_ALBUMS = {
-    "EVENT":   "⭐ EVENT",
-    "EVENT-L": "⭐ EVENT-L",
-    "BEST":    "✦ BEST",
-    "FOOD":    "🍽 FOOD",
-    "MEMORY+": "◆ MEMORY+",
-    "MEMORY-": "◇ MEMORY-",
-    "NORMAL":  "○ NORMAL",
-    "TRASH":   "🗑 TRASH",
+GRADE_ALBUMS = {  # 2026-05-09 안3: EVENT/EVENT-L → +/- 분할 (10등급)
+    "EVENT+":   "⭐ EVENT+",     # 자녀 행사 (보존)
+    "EVENT-":   "⭐ EVENT-",     # 비자녀 행사 (HDD only)
+    "EVENT-L+": "⭐ EVENT-L+",   # 본식 영상/자녀 (보존)
+    "EVENT-L-": "⭐ EVENT-L-",   # 일상 영상/비자녀 (HDD only)
+    "BEST":     "✦ BEST",
+    "FOOD":     "🍽 FOOD",
+    "MEMORY+":  "◆ MEMORY+",
+    "MEMORY-":  "◇ MEMORY-",
+    "NORMAL":   "○ NORMAL",
+    "TRASH":    "🗑 TRASH",
 }
 
 

@@ -43,20 +43,22 @@ DB_DSN = (
     "user=trading_user password=RyIokQY7bV3y7SEsyFLu2Oa6"
 )
 
-# 2026-05-08 P1-E 보강: 사용자 환원 1,599장의 93%가 EVENT/EVENT-L burst.
-# 행사 사진 5초 burst는 사용자가 여러 컷 보존을 원하므로 dedup_5s 제외.
-# (BEST는 베스트컷이 살아남으므로 안전 — 같은 장면 burst 한정)
+# 2026-05-08 P1-E + 2026-05-09 안3: 사용자 환원 1,599장의 93%가 EVENT/EVENT-L.
+# +등급(자녀 행사/본식)은 dedup_5s 제외, -등급은 HDD only이라 dedup 의미 없음 (제외).
+# BEST/MEMORY+/FOOD/MEMORY-/NORMAL만 dedup 대상.
 DEDUP_FROM = ["BEST", "MEMORY+", "FOOD", "MEMORY-", "NORMAL"]
-EVENT_PRESERVED_GRADES = ("EVENT", "EVENT-L")
+EVENT_PRESERVED_GRADES = ("EVENT+", "EVENT-L+")
 
 DEMOTE = {
-    "BEST":    "MEMORY+",
-    "EVENT":   "EVENT-L",
-    "EVENT-L": "MEMORY+",
-    "MEMORY+": "MEMORY-",
-    "FOOD":    "MEMORY-",
-    "MEMORY-": "NORMAL",
-    "NORMAL":  "NORMAL",
+    "BEST":     "MEMORY+",
+    "EVENT+":   "EVENT-L+",   # 자녀 행사 — Long form으로 강등 (iCloud 보존 유지)
+    "EVENT-":   "EVENT-L-",   # 자녀 미등장 — HDD only 유지
+    "EVENT-L+": "MEMORY+",
+    "EVENT-L-": "MEMORY-",
+    "MEMORY+":  "MEMORY-",
+    "FOOD":     "MEMORY-",
+    "MEMORY-":  "NORMAL",
+    "NORMAL":   "NORMAL",
 }
 
 

@@ -142,6 +142,8 @@ class Signals:
     is_video: bool = False
     duration_seconds: float = 0.0
     camera_make: str = ""
+    # 2026-05-09 안3: EVENT/EVENT-L → +/- 분할 신호 (apply_subgrade에서 사용).
+    contains_child: bool = False
 
 
 @dataclass(slots=True)
@@ -291,6 +293,28 @@ VIDEO_SHORT_THRESHOLD = 3.0   # < 3s → TRASH
 VIDEO_LONG_THRESHOLD = 10.0   # ≥ 10s → EVENT-L (행사). 3-10s는 MEMORY+ (짧은 일상 영상)
 
 
+def apply_subgrade(grade: str, signals: Signals, source_path: str = "") -> str:
+    """EVENT/EVENT-L 등급에 +/- suffix 적용 (2026-05-09 안3 — iCloud 50GB 한도).
+
+    - EVENT  → EVENT+  (자녀) / EVENT-  (그 외)
+    - EVENT-L 이미지 → EVENT-L+ (자녀) / EVENT-L- (그 외)
+    - EVENT-L 영상   → EVENT-L+ (source_path '본식' 매칭) / EVENT-L- (그 외)
+
+    BEST/MEMORY+/MEMORY-/NORMAL/FOOD/TRASH는 그대로.
+    """
+    if grade == "EVENT":
+        return "EVENT+" if signals.contains_child else "EVENT-"
+    if grade == "EVENT-L":
+        if signals.is_video:
+            # 영상: 본식 폴더만 보존 (사용자 명시 백업 폴더 추적)
+            if "본식" in source_path or "wedding" in source_path.lower():
+                return "EVENT-L+"
+            return "EVENT-L-"
+        # 이미지: 자녀 기반
+        return "EVENT-L+" if signals.contains_child else "EVENT-L-"
+    return grade
+
+
 def _auto_grade(llm_grade: str, signals: Signals) -> tuple[str, str]:
     """자동 등급 결정 (CLAUDE.md "자동 분류 룰" + grade_classification_spec.md).
 
@@ -343,7 +367,10 @@ class Classifier:
         # 구버전 QwenClient/GroqClient 파라미터 무시 (호환성)
         pass
 
-    def classify_image(self, path: Path, signals: Signals | None = None) -> Decision:
+    def classify_image(
+        self, path: Path, signals: Signals | None = None,
+        source_path: str = "",
+    ) -> Decision:
         sig = signals or opencv_signals(path)
         img_b64 = encode_image(path)
 
@@ -366,7 +393,11 @@ class Classifier:
         except LLMGatewayError as e:
             logger.warning("vision_classify 완전 실패: %s", e)
 
+        # contains_child를 Signals에 반영 → apply_subgrade에서 사용.
+        sig.contains_child = bool(contains_child)
         final, final_src = _auto_grade(grade, sig)
+        # 2026-05-09 안3: EVENT/EVENT-L → +/- suffix 적용 (자녀/본식 신호 기반)
+        final = apply_subgrade(final, sig, source_path or str(path))
         if final_src == "llm_ensemble":
             final_src = f"llm_{used_model}" if used_model else "llm_unknown"
 
@@ -386,7 +417,7 @@ class Classifier:
             contains_child=contains_child,
         )
 
-    def classify_video(self, path: Path) -> Decision:
+    def classify_video(self, path: Path, source_path: str = "") -> Decision:
         dur = video_duration(path)
         sig = Signals(is_video=True, duration_seconds=dur)
         # 2026-05-08 P1-D: 길이 세분화. _auto_grade와 동일 임계 — SSoT 일치.
@@ -394,4 +425,6 @@ class Classifier:
             return Decision(grade="TRASH", confidence=10, source="auto_short_video")
         if VIDEO_SHORT_THRESHOLD <= dur < VIDEO_LONG_THRESHOLD:
             return Decision(grade="MEMORY+", confidence=8, source="auto_short_clip")
-        return Decision(grade="EVENT-L", confidence=8, source="auto_video")
+        # ≥10s 영상 → EVENT-L 후 본식 폴더 매칭 시 +로 승격
+        grade = apply_subgrade("EVENT-L", sig, source_path or str(path))
+        return Decision(grade=grade, confidence=8, source="auto_video")

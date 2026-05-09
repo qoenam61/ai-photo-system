@@ -9,10 +9,15 @@ from enum import StrEnum
 
 
 class Grade(StrEnum):
-    """8단계 자동 분류 등급."""
+    """10단계 자동 분류 등급 (2026-05-09 안3 — EVENT/EVENT-L → +/- 분할).
 
-    EVENT = "EVENT"
-    EVENT_L = "EVENT-L"
+    Legacy alias EVENT/EVENT_L 유지 (테스트·구버전 코드 호환).
+    """
+
+    EVENT_PLUS = "EVENT+"        # 자녀 등장 행사 (iCloud 보존)
+    EVENT_MINUS = "EVENT-"       # 자녀 미등장 행사 (HDD only)
+    EVENT_L_PLUS = "EVENT-L+"    # 본식 영상 + 자녀 행사 long form (iCloud)
+    EVENT_L_MINUS = "EVENT-L-"   # 일상 영상 + 비자녀 행사 long form (HDD only)
     BEST = "BEST"
     FOOD = "FOOD"
     MEMORY_PLUS = "MEMORY+"
@@ -20,10 +25,18 @@ class Grade(StrEnum):
     NORMAL = "NORMAL"
     TRASH = "TRASH"
     UNCLASSIFIED = "UNCLASSIFIED"  # Layer 4 큐 진입용
+    # Legacy alias (2026-05-09 이전 코드/테스트 호환). 분류 결과는 항상 +/- 사용.
+    EVENT = "EVENT"
+    EVENT_L = "EVENT-L"
 
 
-CLOUD_BACKUP_GRADES: frozenset[Grade] = frozenset({Grade.EVENT, Grade.BEST})
-DEVICE_KEEP_GRADES: frozenset[Grade] = frozenset({Grade.EVENT, Grade.BEST})
+# 보존 = +등급만 (자녀 OR 본식 영상). iCloud 50GB 한도 유지 (2026-05-09 안3).
+CLOUD_BACKUP_GRADES: frozenset[Grade] = frozenset({
+    Grade.BEST, Grade.EVENT_PLUS, Grade.EVENT_L_PLUS, Grade.MEMORY_PLUS,
+})
+DEVICE_KEEP_GRADES: frozenset[Grade] = frozenset({
+    Grade.BEST, Grade.EVENT_PLUS, Grade.EVENT_L_PLUS, Grade.MEMORY_PLUS,
+})
 
 
 @dataclass(frozen=True, slots=True)

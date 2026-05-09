@@ -37,15 +37,17 @@ DB_DSN = (
     "user=trading_user password=RyIokQY7bV3y7SEsyFLu2Oa6"
 )
 
-GRADE_ALBUMS = {
-    "EVENT":   "⭐ EVENT",
-    "EVENT-L": "⭐ EVENT-L",
-    "BEST":    "✦ BEST",
-    "FOOD":    "🍽 FOOD",
-    "MEMORY+": "◆ MEMORY+",
-    "MEMORY-": "◇ MEMORY-",
-    "NORMAL":  "○ NORMAL",
-    "TRASH":   "🗑 TRASH",
+GRADE_ALBUMS = {  # 2026-05-09 안3: EVENT/EVENT-L → +/- 분할 (10등급)
+    "EVENT+":   "⭐ EVENT+",
+    "EVENT-":   "⭐ EVENT-",
+    "EVENT-L+": "⭐ EVENT-L+",
+    "EVENT-L-": "⭐ EVENT-L-",
+    "BEST":     "✦ BEST",
+    "FOOD":     "🍽 FOOD",
+    "MEMORY+":  "◆ MEMORY+",
+    "MEMORY-":  "◇ MEMORY-",
+    "NORMAL":   "○ NORMAL",
+    "TRASH":    "🗑 TRASH",
 }
 
 

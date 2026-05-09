@@ -39,7 +39,10 @@ DB_DSN = os.getenv(
 )
 LIBRARY_HOST = Path("/Volumes/Immich-Storage/immich-media/library")
 VIEWS_HOST = Path("/Volumes/Immich-Storage/immich-views")
-GRADES = ("BEST", "EVENT", "EVENT-L", "FOOD", "MEMORY+", "MEMORY-", "NORMAL", "TRASH")
+GRADES = (
+    "BEST", "EVENT+", "EVENT-", "EVENT-L+", "EVENT-L-",
+    "FOOD", "MEMORY+", "MEMORY-", "NORMAL", "TRASH",
+)  # 2026-05-09 안3: EVENT/EVENT-L → +/- 분할 (10등급)
 
 
 def fetch_db_stats() -> dict:

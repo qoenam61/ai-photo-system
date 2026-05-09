@@ -55,13 +55,14 @@ DATE_TOL = timedelta(seconds=2)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PHOTOS_CLI = PROJECT_ROOT / "tools" / "photos_cli"
 
-# iCloud 백업 대상 4등급만 동기 (사용자 명시 2026-05-05 정정).
-# 제외 등급(FOOD/MEMORY-/NORMAL/TRASH)은 HDD 보존 only — iCloud 한도 절감.
+# iCloud 백업 대상 4등급만 동기 (사용자 명시 2026-05-05 정정 + 2026-05-09 안3 분할).
+# 보존 = +등급만 (자녀 OR 본식 영상). -등급은 HDD only — iCloud 50GB 한도 유지.
+# 제외 등급(EVENT-/EVENT-L-/FOOD/MEMORY-/NORMAL/TRASH)은 HDD 보존 only.
 GRADE_ALBUMS = {
-    "EVENT":   "⭐ EVENT",
-    "EVENT-L": "⭐ EVENT-L",
-    "BEST":    "✦ BEST",
-    "MEMORY+": "◆ MEMORY+",
+    "EVENT+":   "⭐ EVENT",     # 자녀 등장 행사
+    "EVENT-L+": "⭐ EVENT-L",   # 본식 영상 + 자녀 행사 (long form)
+    "BEST":     "✦ BEST",
+    "MEMORY+":  "◆ MEMORY+",
 }
 
 

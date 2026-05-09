@@ -141,8 +141,11 @@ class StorageService:
         target = layout.asset_path(grade, asset_uuid, ext)
         link_name = f"{timestamp}.{ext}"
 
-        # 행사별 (EVENT/EVENT-L만)
-        if event_label and grade in (Grade.EVENT, Grade.EVENT_L):
+        # 행사별 (EVENT*/EVENT-L* — +/-등급 모두 — 2026-05-09 안3)
+        if event_label and grade in (
+            Grade.EVENT_PLUS, Grade.EVENT_MINUS,
+            Grade.EVENT_L_PLUS, Grade.EVENT_L_MINUS,
+        ):
             self.add_view_link(layout.view_event_folder(event_label), target, link_name)
 
         # 월별 (TRASH 제외)

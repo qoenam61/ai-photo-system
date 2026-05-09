@@ -22,8 +22,10 @@ LIBRARY_HOST = Path("/Volumes/Immich-Storage/immich-media/library")
 LIBRARY_IMMICH = "/mnt/external/library"
 VIEWS_HOST = Path("/Volumes/Immich-Storage/immich-views")
 
-VALID_GRADES = {"BEST", "EVENT", "EVENT-L", "FOOD",
-                "MEMORY+", "MEMORY-", "NORMAL", "TRASH"}
+VALID_GRADES = {  # 2026-05-09 안3: EVENT/EVENT-L → +/- 분할 (10등급)
+    "BEST", "EVENT+", "EVENT-", "EVENT-L+", "EVENT-L-",
+    "FOOD", "MEMORY+", "MEMORY-", "NORMAL", "TRASH",
+}
 
 
 def _immich_to_host(immich_path: str) -> Path:

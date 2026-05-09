@@ -30,15 +30,17 @@ DB_DSN = (
 HEADERS = {"x-api-key": KEY, "Accept": "application/json"}
 LIB_ID = "a6153155-c7a8-4d63-8d92-20d0bac8820f"
 
-GRADE_ALBUMS = {
-    "EVENT":   "⭐ EVENT",
-    "EVENT-L": "⭐ EVENT-L",
-    "BEST":    "✦ BEST",
-    "FOOD":    "🍽 FOOD",
-    "MEMORY+": "◆ MEMORY+",
-    "MEMORY-": "◇ MEMORY-",
-    "NORMAL":  "○ NORMAL",
-    "TRASH":   "🗑 TRASH",
+GRADE_ALBUMS = {  # 2026-05-09 안3: EVENT/EVENT-L → +/- 분할 (10등급)
+    "EVENT+":   "⭐ EVENT+",
+    "EVENT-":   "⭐ EVENT-",
+    "EVENT-L+": "⭐ EVENT-L+",
+    "EVENT-L-": "⭐ EVENT-L-",
+    "BEST":     "✦ BEST",
+    "FOOD":     "🍽 FOOD",
+    "MEMORY+":  "◆ MEMORY+",
+    "MEMORY-":  "◇ MEMORY-",
+    "NORMAL":   "○ NORMAL",
+    "TRASH":    "🗑 TRASH",
 }
 
 
