@@ -103,6 +103,8 @@ def fetch_db_immich_match() -> dict:
         return {"db_in_active": 0, "db_in_deleted": 0,
                 "db_missing": 0, "immich_unclassified": 0}
 
+    # 2026-05-09: encoded-video 경로 제외 — Immich 자동 transcode 사본은
+    # 원본의 별도 사본이라 photo.classification 등록 대상 X (분류 X). 갭이 아님.
     sql = """
     CREATE TEMP TABLE _db_ids (asset_id TEXT);
     COPY _db_ids FROM stdin;
@@ -113,7 +115,8 @@ def fetch_db_immich_match() -> dict:
     FROM _db_ids d
     LEFT JOIN asset a ON SPLIT_PART(
         REVERSE(SPLIT_PART(REVERSE(a."originalPath"), '/', 1)), '.', 1
-    ) = d.asset_id;
+    ) = d.asset_id
+    AND a."originalPath" NOT LIKE '%/encoded-video/%';
     """
     full_input = sql.replace(
         "COPY _db_ids FROM stdin;",
@@ -136,7 +139,8 @@ def fetch_db_immich_match() -> dict:
     proc3 = subprocess.run(
         ["docker", "exec", "-i", "immich-postgres",
          "psql", "-U", "postgres", "-d", "immich", "-t", "-A", "-c",
-         "SELECT COUNT(*) FROM asset WHERE \"deletedAt\" IS NULL"],
+         "SELECT COUNT(*) FROM asset WHERE \"deletedAt\" IS NULL "
+         "AND \"originalPath\" NOT LIKE '%/encoded-video/%'"],
         capture_output=True, text=True, check=True, timeout=30,
     )
     immich_active_total = int(proc3.stdout.strip() or 0)

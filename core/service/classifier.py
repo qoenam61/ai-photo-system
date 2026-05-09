@@ -273,10 +273,17 @@ def _llm_sanity_check(llm_grade: str, signals: Signals) -> tuple[str, str]:
     lap = signals.laplacian_variance
     cam = signals.camera_make
 
-    # BEST → 신호 모두 의심: 얼굴 X + 카메라메타 X + 매우 흐림
-    if llm_grade == "BEST":
-        if fc == 0 and not cam and lap < 30 and lap > 0:
+    # BEST → 신호 의심 분기 (2026-05-09 보강):
+    #   매우 흐림 → TRASH (기존)
+    #   출처 불명(카메라/얼굴/EXIF 모두 없음) + 보통 화질 → NORMAL 강등
+    #   진짜 풍경 사진(lap≥100)은 BEST 유지
+    if llm_grade == "BEST" and fc == 0 and not cam:
+        if 0 < lap < 30:
             return "TRASH", "_llm_best_unverified"
+        if 30 <= lap < 100:
+            # 평가단 분석: BEST 카메라 (없음) 70.9% — 스크린샷/카톡/스캔 의심 다수.
+            # 사람 X + 카메라 X + EXIF 없음 + 평범한 화질 = 보존 가치 의심 → NORMAL.
+            return "NORMAL", "_llm_best_no_provenance"
 
     # FOOD → 사람 다수 (인물 우선)
     if llm_grade == "FOOD" and fc >= 5:

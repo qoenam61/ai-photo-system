@@ -102,6 +102,47 @@ else
   fail "db:queue_audit_consistency" "processed=$processed != hdd_success=$audit_hdd"
 fi
 
+# 9. CLAUDE.md "10등급" 명시 ↔ DB 실제 등급 set 일치 (2026-05-09 안3 후속)
+if grep -q '\*\*10등급\*\*' CLAUDE.md; then
+  ok "CLAUDE.md:grade_count" "10등급 명시됨"
+else
+  fail "CLAUDE.md:grade_count" "10등급 명시 누락 — 분할 후 SSoT 미갱신"
+fi
+
+# DB 등급 set 정확 일치 (정규화 sort)
+expected_grades="BEST EVENT+ EVENT- EVENT-L+ EVENT-L- FOOD MEMORY+ MEMORY- NORMAL TRASH"
+actual_grades=$(docker exec -i trading_postgres psql -U trading_user -d trading_db -t -A -c \
+  "SELECT grade FROM photo.classification GROUP BY grade ORDER BY grade" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
+expected_sorted=$(echo "$expected_grades" | tr ' ' '\n' | sort | tr '\n' ' ' | sed 's/ $//')
+actual_sorted=$(echo "$actual_grades" | tr ' ' '\n' | sort | tr '\n' ' ' | sed 's/ $//')
+if [ "$expected_sorted" = "$actual_sorted" ]; then
+  ok "db:grade_set" "10등급 정확 일치"
+else
+  fail "db:grade_set" "expected=[$expected_sorted] actual=[$actual_sorted]"
+fi
+
+# 10. iCloud 보존 50GB 한도 검증 (안3 사용자 결정)
+preserved_gb=$(docker exec -i trading_postgres psql -U trading_user -d trading_db -t -A -c "
+SELECT ROUND(SUM(file_size_bytes)/1024.0/1024/1024, 1)
+FROM photo.classification
+WHERE grade IN ('BEST','EVENT+','EVENT-L+','MEMORY+');
+" 2>/dev/null)
+preserved_int=${preserved_gb%.*}
+if [ -n "$preserved_int" ] && [ "$preserved_int" -lt 50 ]; then
+  ok "policy:icloud_50gb" "보존 ${preserved_gb} GB < 50 GB ✓"
+else
+  fail "policy:icloud_50gb" "보존 ${preserved_gb} GB ≥ 50 GB — 한도 초과"
+fi
+
+# 11. cleanup_audit.reason_category NULL 0 (P0-B 정규화)
+null_audit=$(docker exec -i trading_postgres psql -U trading_user -d trading_db -t -A -c \
+  "SELECT COUNT(*) FROM photo.cleanup_audit WHERE reason_category IS NULL" 2>/dev/null)
+if [ "$null_audit" = "0" ]; then
+  ok "db:audit_category_normalized" "NULL = 0"
+else
+  fail "db:audit_category_normalized" "NULL = $null_audit (P0-B 정규화 미완)"
+fi
+
 echo
 echo "=== PASS $PASS / FAIL $FAIL ==="
 if [ $FAIL -gt 0 ]; then
