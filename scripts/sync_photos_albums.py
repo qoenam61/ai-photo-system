@@ -65,6 +65,21 @@ GRADE_ALBUMS = {
     "MEMORY+":  "◆ MEMORY+",
 }
 
+# 2026-05-11 ABCD β: base album + sub-album 동시 동기 (사용자 명시).
+# (grade, sub_category) → sub-album 이름. None이면 sub-album 미생성.
+SUB_ALBUMS: dict[tuple[str, str], str] = {
+    ("BEST", "portrait"):          "✦ BEST (Portrait)",
+    ("BEST", "landscape"):         "✦ BEST (Landscape)",
+    ("BEST", "unknown"):           "✦ BEST (Unverified)",
+    ("EVENT+", "family"):          "⭐ EVENT (Family)",
+    ("EVENT+", "wedding"):         "⭐ EVENT (Wedding)",
+    ("EVENT-L+", "wedding"):       "⭐ EVENT-L (Wedding)",
+    ("EVENT-L+", "family"):        "⭐ EVENT-L (Family)",
+    ("EVENT-L+", "wedding_video"): "⭐ EVENT-L (Wedding Video)",
+    ("MEMORY+", "image"):          "◆ MEMORY+ (Photo)",
+    ("MEMORY+", "video"):          "◆ MEMORY+ (Video)",
+}
+
 
 def fetch_targets(only_unsynced: bool, limit: int) -> list[tuple]:
     """동기 대상: (asset_id, grade) — iCloud 백업 4등급만.
@@ -80,7 +95,7 @@ def fetch_targets(only_unsynced: bool, limit: int) -> list[tuple]:
         where_unsynced = ("AND (synced_to_mac_album_at IS NULL OR "
                           "synced_to_mac_album_at < updated_at)")
     sql = f"""
-        SELECT c.asset_id::text, c.grade
+        SELECT c.asset_id::text, c.grade, COALESCE(c.sub_category, '')
         FROM photo.classification c
         WHERE c.grade = ANY(%s)
           AND NOT EXISTS (
@@ -335,8 +350,9 @@ def main() -> None:
         print("✅ 동기 대상 없음")
         return
 
-    asset_ids = [a for a, _ in targets]
-    grade_map = {a: g for a, g in targets}
+    asset_ids = [a for a, _, _ in targets]
+    grade_map = {a: g for a, g, _ in targets}
+    sub_map = {a: s for a, _, s in targets}  # 2026-05-11 ABCD β
 
     print("🔍 Immich 인덱스 + Mac Photos 인덱스 ...")
     immich_idx = fetch_immich_index()
@@ -347,7 +363,7 @@ def main() -> None:
     print(f"   immich active: {len(immich_idx)} / matched: {len(meta_map)}/{len(asset_ids)}")
     print(f"   Mac Photos: {len(db.photos())}")
 
-    # asset_id → (mac_uuid, grade) 매칭
+    # asset_id → (mac_uuid, grade) 매칭. base album + sub-album 동시 (β).
     by_album: dict[str, list[tuple[str, str]]] = defaultdict(list)
     no_match = 0
     no_meta = 0
@@ -362,12 +378,20 @@ def main() -> None:
             no_match += 1
             continue
         grade = grade_map[aid]
-        album_name = GRADE_ALBUMS.get(grade)
-        if album_name:
-            by_album[album_name].append((aid, mac_uuid))
+        sub = sub_map.get(aid, "")
+        # base album
+        base_album = GRADE_ALBUMS.get(grade)
+        if base_album:
+            by_album[base_album].append((aid, mac_uuid))
+        # sub-album (2026-05-11 ABCD β)
+        sub_album = SUB_ALBUMS.get((grade, sub))
+        if sub_album:
+            by_album[sub_album].append((aid, mac_uuid))
 
-    matched = sum(len(v) for v in by_album.values())
-    print(f"\n📊 매칭: {matched}장 / 미매칭(Mac에없음): {no_match} / meta없음: {no_meta}")
+    matched_unique = len({u for items in by_album.values() for _, u in items})
+    matched_album_ops = sum(len(v) for v in by_album.values())
+    print(f"\n📊 매칭: {matched_unique}장 (앨범 추가 작업 {matched_album_ops}건) / "
+          f"미매칭(Mac에없음): {no_match} / meta없음: {no_meta}")
 
     if args.dry_run:
         print("\n💡 dry-run — Mac Photos 변경 X")
