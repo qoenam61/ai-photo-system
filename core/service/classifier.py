@@ -151,6 +151,7 @@ class Decision:
     grade: str
     confidence: int
     source: str
+    sub_category: str = ""  # 2026-05-11 ABCD 세분화 — apply_subcategory() 결과
     qwen_grade: str = ""
     qwen_conf: int = 0
     qwen_ms: int = 0
@@ -314,6 +315,72 @@ VIDEO_SHORT_THRESHOLD = 3.0   # < 3s → TRASH
 VIDEO_LONG_THRESHOLD = 10.0   # ≥ 10s → EVENT-L (행사). 3-10s는 MEMORY+ (짧은 일상 영상)
 
 
+def apply_subcategory(
+    grade: str, signals: Signals, source_path: str, grade_source: str = "",
+) -> str:
+    """등급 내부 세분화 라벨 (2026-05-11 ABCD).
+
+    정책 분기는 grade로만, sub_category는 표시/필터링용.
+    """
+    is_video = signals.is_video
+    is_wedding = _is_wedding_path(source_path)
+
+    # D. BEST → portrait / landscape / unknown
+    if grade == "BEST":
+        if signals.face_count > 0:
+            return "portrait"
+        if signals.camera_make:
+            return "landscape"
+        return "unknown"  # 사람 X + 카메라 X = 출처 불명
+
+    # B. EVENT+ / EVENT-L+ → wedding / family / video / other
+    if grade == "EVENT+":
+        if is_wedding or grade_source.startswith("folder_bulk"):
+            return "wedding"
+        if signals.contains_child:
+            return "family"
+        return "other"
+    if grade == "EVENT-L+":
+        if is_video and grade_source.startswith("folder_bulk_no_convert"):
+            return "wedding_video"
+        if is_video:
+            return "video"
+        if is_wedding or grade_source.startswith("folder_bulk"):
+            return "wedding"
+        if signals.contains_child:
+            return "family"
+        return "other"
+
+    # EVENT- / EVENT-L- (HDD only — 일관성)
+    if grade in ("EVENT-", "EVENT-L-"):
+        if is_video:
+            return "video"
+        if is_wedding or grade_source.startswith("folder_bulk"):
+            return "wedding_archive"
+        return "other"
+
+    # A. MEMORY+ → image / video
+    if grade == "MEMORY+":
+        return "video" if is_video else "image"
+
+    # C. TRASH → duplicate / screenshot / short_video / llm_no_face / llm_judged
+    if grade == "TRASH":
+        if grade_source.startswith("dedup_demoted"):
+            return "duplicate"
+        if grade_source == "auto_screenshot":
+            return "screenshot"
+        if grade_source == "auto_short_video":
+            return "short_video"
+        if grade_source.startswith("llm_") and signals.face_count == 0:
+            return "llm_no_face"
+        if grade_source.startswith("llm_"):
+            return "llm_judged"
+        return "other"
+
+    # 그 외 (FOOD/MEMORY-/NORMAL) — image/video 일반 라벨
+    return "video" if is_video else "image"
+
+
 def _is_wedding_path(source_path: str) -> bool:
     """본식/웨딩 폴더 자산 매칭 — 사용자 명시 백업 폴더 = 보존 의지 명확.
 
@@ -437,6 +504,8 @@ class Classifier:
         final = apply_subgrade(final, sig, source_path or str(path))
         if final_src == "llm_ensemble":
             final_src = f"llm_{used_model}" if used_model else "llm_unknown"
+        # 2026-05-11 ABCD: sub_category 자동 부여
+        sub_cat = apply_subcategory(final, sig, source_path or str(path), final_src)
 
         qwen_grade = grade if used_model == "qwen" else ""
         qwen_conf  = conf  if used_model == "qwen" else 0
@@ -452,6 +521,7 @@ class Classifier:
             qwen_grade=qwen_grade, qwen_conf=qwen_conf, qwen_ms=qwen_ms,
             groq_grade=groq_grade, groq_conf=groq_conf, groq_ms=groq_ms,
             contains_child=contains_child,
+            sub_category=sub_cat,
         )
 
     def classify_video(self, path: Path, source_path: str = "") -> Decision:
@@ -459,9 +529,15 @@ class Classifier:
         sig = Signals(is_video=True, duration_seconds=dur)
         # 2026-05-08 P1-D: 길이 세분화. _auto_grade와 동일 임계 — SSoT 일치.
         if 0 < dur < VIDEO_SHORT_THRESHOLD:
-            return Decision(grade="TRASH", confidence=10, source="auto_short_video")
+            sub = apply_subcategory("TRASH", sig, source_path or str(path), "auto_short_video")
+            return Decision(grade="TRASH", confidence=10, source="auto_short_video",
+                            sub_category=sub)
         if VIDEO_SHORT_THRESHOLD <= dur < VIDEO_LONG_THRESHOLD:
-            return Decision(grade="MEMORY+", confidence=8, source="auto_short_clip")
+            sub = apply_subcategory("MEMORY+", sig, source_path or str(path), "auto_short_clip")
+            return Decision(grade="MEMORY+", confidence=8, source="auto_short_clip",
+                            sub_category=sub)
         # ≥10s 영상 → EVENT-L 후 본식 폴더 매칭 시 +로 승격
         grade = apply_subgrade("EVENT-L", sig, source_path or str(path))
-        return Decision(grade=grade, confidence=8, source="auto_video")
+        sub = apply_subcategory(grade, sig, source_path or str(path), "auto_video")
+        return Decision(grade=grade, confidence=8, source="auto_video",
+                        sub_category=sub)

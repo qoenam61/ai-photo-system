@@ -104,6 +104,7 @@ class ClassifyResponse(BaseModel):
     grade: str
     confidence: int
     source: str
+    sub_category: str = ""  # 2026-05-11 ABCD 세분화 라벨
     qwen_grade: str = ""
     qwen_conf: int = 0
     qwen_ms: int = 0
@@ -191,6 +192,7 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
 
     return ClassifyResponse(
         grade=d.grade, confidence=d.confidence, source=d.source,
+        sub_category=d.sub_category,
         qwen_grade=d.qwen_grade, qwen_conf=d.qwen_conf, qwen_ms=d.qwen_ms,
         groq_grade=d.groq_grade, groq_conf=d.groq_conf, groq_ms=d.groq_ms,
         contains_child=d.contains_child,
@@ -703,18 +705,19 @@ def classify_and_persist(req: ClassifyRequest) -> ClassifyResponse:
         cur.execute("""
             INSERT INTO photo.classification
               (asset_id, source_path, sha256, file_size_bytes, grade, grade_source,
-               confidence,
+               confidence, sub_category,
                qwen_grade, qwen_conf, qwen_ms,
                groq_grade, groq_conf, groq_ms,
                contains_child, is_video, duration_seconds,
                face_count, laplacian_variance, is_screenshot, camera_make,
                classified_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (asset_id) DO UPDATE SET
               grade = EXCLUDED.grade,
               grade_source = EXCLUDED.grade_source,
               confidence = EXCLUDED.confidence,
+              sub_category = EXCLUDED.sub_category,
               qwen_grade = EXCLUDED.qwen_grade,
               qwen_conf = EXCLUDED.qwen_conf,
               groq_grade = EXCLUDED.groq_grade,
@@ -730,6 +733,7 @@ def classify_and_persist(req: ClassifyRequest) -> ClassifyResponse:
         """, (
             asset_id, req.path, sha, file_size, resp.grade, resp.source,
             resp.confidence,  # 2026-05-10 P0 fix: confidence 누락 → NULL 8,548장 발생
+            resp.sub_category,  # 2026-05-11 ABCD 세분화 라벨
             resp.qwen_grade, resp.qwen_conf, resp.qwen_ms,
             resp.groq_grade, resp.groq_conf, resp.groq_ms,
             resp.contains_child,

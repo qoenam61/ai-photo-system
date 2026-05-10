@@ -143,6 +143,24 @@ else
   fail "db:audit_category_normalized" "NULL = $null_audit (P0-B 정규화 미완)"
 fi
 
+# 12. confidence NULL 0 (5/10 P0 fix)
+null_conf=$(docker exec -i trading_postgres psql -U trading_user -d trading_db -t -A -c \
+  "SELECT COUNT(*) FROM photo.classification WHERE confidence IS NULL" 2>/dev/null)
+if [ "$null_conf" = "0" ]; then
+  ok "db:confidence_filled" "NULL = 0"
+else
+  fail "db:confidence_filled" "NULL = $null_conf (classify_and_persist INSERT 누락)"
+fi
+
+# 13. sub_category NULL 0 (5/11 ABCD)
+null_sub=$(docker exec -i trading_postgres psql -U trading_user -d trading_db -t -A -c \
+  "SELECT COUNT(*) FROM photo.classification WHERE sub_category IS NULL" 2>/dev/null)
+if [ "$null_sub" = "0" ]; then
+  ok "db:sub_category_filled" "NULL = 0"
+else
+  fail "db:sub_category_filled" "NULL = $null_sub (ABCD 세분화 미완)"
+fi
+
 echo
 echo "=== PASS $PASS / FAIL $FAIL ==="
 if [ $FAIL -gt 0 ]; then
