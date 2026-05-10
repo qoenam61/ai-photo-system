@@ -110,9 +110,19 @@ def main() -> None:
               FROM bucketed
             )
             -- group_size >= 3: 진짜 burst만 처리 (단순 2장 쌍 보호 — 2026-05-08 P1-E)
-            SELECT grade, asset_id::text, group_size, rn
-            FROM ranked
-            WHERE rn > 1 AND group_size >= 3
+            -- 2026-05-10 추가: 그룹 내 file_size/laplacian 편차 큰 자산은 같은 장면 X →
+            -- 베스트컷과 80% 유사한 자산만 dedup 대상 (다른 장면 false-positive 차단).
+            , best_in_group AS (
+                SELECT make, model, time_bucket,
+                       MAX(lap * file_size_bytes) AS best_score
+                FROM ranked WHERE rn = 1
+                GROUP BY make, model, time_bucket
+            )
+            SELECT r.grade, r.asset_id::text, r.group_size, r.rn
+            FROM ranked r
+            JOIN best_in_group b USING (make, model, time_bucket)
+            WHERE r.rn > 1 AND r.group_size >= 3
+              AND (r.lap * r.file_size_bytes) >= 0.4 * b.best_score
         """)
         candidates = cur.fetchall()
 

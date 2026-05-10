@@ -293,6 +293,20 @@ def _llm_sanity_check(llm_grade: str, signals: Signals) -> tuple[str, str]:
     if llm_grade == "TRASH" and fc > 0 and lap >= 100:
         return "MEMORY+", "_llm_trash_face_sharp"
 
+    # 2026-05-10 신규 안전장치 (오분류 방지):
+    # EVENT → 사람 X + 카메라 X = 행사 정의 위반 (LLM 환각 의심)
+    if llm_grade == "EVENT" and fc == 0 and not cam:
+        if lap > 0 and lap < 100:
+            return "NORMAL", "_llm_event_no_people_no_camera"
+        # 화질 좋고 카메라 있으면 풍경 행사 가능성 → 그대로 유지
+
+    # FOOD → 사람 1~4명 + 음식 가능성 (행사 일부) → 그대로 유지
+    # (FOOD ≥ 5명 이미 EVENT 처리됨)
+
+    # BEST → 매우 흐림 인물 → MEMORY- 강등 (기존 TRASH 보호 강화)
+    if llm_grade == "BEST" and fc > 0 and 0 < lap < 50:
+        return "MEMORY-", "_llm_best_blurry_face"
+
     return llm_grade, ""
 
 
