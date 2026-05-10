@@ -300,25 +300,41 @@ VIDEO_SHORT_THRESHOLD = 3.0   # < 3s → TRASH
 VIDEO_LONG_THRESHOLD = 10.0   # ≥ 10s → EVENT-L (행사). 3-10s는 MEMORY+ (짧은 일상 영상)
 
 
+def _is_wedding_path(source_path: str) -> bool:
+    """본식/웨딩 폴더 자산 매칭 — 사용자 명시 백업 폴더 = 보존 의지 명확.
+
+    2026-05-10: folder_bulk 자산은 LLM 미실행이라 contains_child=FALSE 다수 →
+    자녀 기반 분할 시 잘못 강등됨. source_path 매칭으로 강제 보존.
+
+    macOS path는 NFD (decomposed) 인코딩, Python literal은 NFC.
+    unicodedata.normalize로 정규화 후 비교.
+    """
+    if not source_path:
+        return False
+    import unicodedata
+    norm = unicodedata.normalize("NFC", source_path)
+    if "본식" in norm or "웨딩" in norm:
+        return True
+    return "wedding" in norm.lower()
+
+
 def apply_subgrade(grade: str, signals: Signals, source_path: str = "") -> str:
     """EVENT/EVENT-L 등급에 +/- suffix 적용 (2026-05-09 안3 — iCloud 50GB 한도).
 
-    - EVENT  → EVENT+  (자녀) / EVENT-  (그 외)
-    - EVENT-L 이미지 → EVENT-L+ (자녀) / EVENT-L- (그 외)
-    - EVENT-L 영상   → EVENT-L+ (source_path '본식' 매칭) / EVENT-L- (그 외)
+    - EVENT  → EVENT+  (자녀 OR 본식/웨딩 폴더) / EVENT-  (그 외)
+    - EVENT-L 이미지 → EVENT-L+ (자녀 OR 본식/웨딩) / EVENT-L- (그 외)
+    - EVENT-L 영상   → EVENT-L+ (본식/웨딩 폴더) / EVENT-L- (일상 영상)
 
+    본식/웨딩 폴더 자산은 자녀 무관 보존 (사용자 명시 의지 — 2026-05-10).
     BEST/MEMORY+/MEMORY-/NORMAL/FOOD/TRASH는 그대로.
     """
+    is_wedding = _is_wedding_path(source_path)
     if grade == "EVENT":
-        return "EVENT+" if signals.contains_child else "EVENT-"
+        return "EVENT+" if (signals.contains_child or is_wedding) else "EVENT-"
     if grade == "EVENT-L":
         if signals.is_video:
-            # 영상: 본식 폴더만 보존 (사용자 명시 백업 폴더 추적)
-            if "본식" in source_path or "wedding" in source_path.lower():
-                return "EVENT-L+"
-            return "EVENT-L-"
-        # 이미지: 자녀 기반
-        return "EVENT-L+" if signals.contains_child else "EVENT-L-"
+            return "EVENT-L+" if is_wedding else "EVENT-L-"
+        return "EVENT-L+" if (signals.contains_child or is_wedding) else "EVENT-L-"
     return grade
 
 
