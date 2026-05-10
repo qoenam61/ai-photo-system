@@ -49,9 +49,9 @@ NON_ICLOUD_GRADES = (
     "FOOD", "MEMORY-", "NORMAL", "TRASH",
     "EVENT-", "EVENT-L-",  # 자녀 미등장 행사 + 본식 영상 외 일상 영상
 )
-# 2026-05-08: PhotoCleanup.app delete-by-meta가 200장 batch에서 hang 빈도 높음.
-# 50장으로 줄여 PhotoKit semaphore.wait() 무응답 회피.
-BATCH_CHUNK = 50
+# 2026-05-10: BATCH 50 → 100 (PhotoKit confirmation popup 횟수 ½ 감소).
+# popup은 batch당 1회 — 사용자 클릭 부담 감소. 50일 때 hang 0건이라 100 재시도.
+BATCH_CHUNK = 100
 
 
 def delete_via_meta_fallback(

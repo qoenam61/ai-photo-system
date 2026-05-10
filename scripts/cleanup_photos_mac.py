@@ -121,8 +121,8 @@ def find_mac_photo_uuid(
 
 
 PHOTO_CLEANUP_APP = "/Users/jw-home/Applications/PhotoCleanup.app"
-# 2026-05-08: 200장 batch는 PhotoKit semaphore.wait() hang 빈도 높음 → 50으로 강등
-BATCH_CHUNK = 50
+# 2026-05-10: BATCH 50 → 100 (popup 횟수 ½ 감소). hang 빈도 평가 후 조정.
+BATCH_CHUNK = 100
 
 
 def delete_via_meta_fallback(

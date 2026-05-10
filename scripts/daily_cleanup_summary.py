@@ -139,11 +139,18 @@ def format_message(audit, pending, routing, td_n) -> str:
         )
         lines.append("")
 
-    # 액션 가이드
-    lines.append("<b>승인 명령</b> (잔여 일괄 정리):")
-    lines.append("  <code>bash scripts/cleanup_now.sh</code>")
-    lines.append("")
+    # 액션 가이드 (2026-05-10: launchd 자동 cleanup 비활성 — popup timeout fail 방지)
+    if pending_total > 0:
+        popups = (pending_total + 99) // 100  # BATCH 100 = popup 1회/100장
+        lines.append(f"⚠️ <b>Mac launchd cleanup 비활성</b> (PhotoKit popup이 사용자 부재 시 timeout)")
+        lines.append(f"<b>잔여 정리하려면 직접 실행</b>:")
+        lines.append(f"  <code>bash scripts/cleanup_now.sh</code>")
+        lines.append(f"  → PhotoKit confirmation popup 약 <b>{popups}회</b> 클릭 (각 100장)")
+        lines.append("")
     lines.append("<b>iCloud 즉시 회수</b>: Mac Photos.app → 최근 삭제됨 → 모두 삭제")
+    lines.append("")
+    lines.append("<b>iOS Shortcut</b> (popup 없는 자동 정리):")
+    lines.append("  iPhone에서 'Photo Cleanup' 단축어 실행 — iCloud-only 자산도 매칭")
 
     return "\n".join(lines)
 
