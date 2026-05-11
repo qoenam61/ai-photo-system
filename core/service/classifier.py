@@ -178,11 +178,16 @@ def encode_image(path: Path, max_dim: int = 512) -> str:
 
 
 def exif_camera_make(path: Path) -> str:
-    """EXIF Make 태그 추출. 카메라 사진 판별용."""
+    """EXIF Make 태그 추출. 카메라 사진 판별용.
+
+    2026-05-11: NUL byte (0x00) 제거 — PostgreSQL text 거부 회피.
+    일부 카메라 EXIF에 trailing NUL이 포함됨 (psycopg.DataError 원인).
+    """
     try:
         with Image.open(path) as pil:
             exif = pil.getexif()
-            return str(exif.get(271, "") or "").strip()
+            raw = str(exif.get(271, "") or "")
+            return raw.replace("\x00", "").strip()
     except Exception:
         return ""
 
