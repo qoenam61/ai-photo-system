@@ -113,6 +113,19 @@ def _is_trading_hours_kst() -> bool:
     return 9 * 60 <= minutes <= 15 * 60 + 30
 
 
+def _is_dawn_hours_kst() -> bool:
+    """새벽 00:00-05:59 KST = Vision LLM 허용 시간대 (Groq + Qwen 모두).
+
+    n8n photo-auto-classify cron 03:00에 맞춤.
+    환경변수 DAWN_ONLY_LLM=0 으로 비활성 가능 (테스트/긴급).
+    """
+    import datetime
+    if os.getenv("DAWN_ONLY_LLM", "1") == "0":
+        return True
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    return datetime.datetime.now(kst).hour < 6
+
+
 def vision_classify(
     system: str,
     prompt: str,
@@ -123,13 +136,22 @@ def vision_classify(
 ) -> VisionResponse:
     """사진 분류 Vision 호출. Groq Llama-4 Scout 우선 → Qwen VL 7B fallback.
 
-    근거: v3.13 VISION_MODEL_CHAIN 동적 라우팅 + 사용자 명시 2026-05-04
-          하이브리드 정책 (Groq 빠른 처리, throttle/실패 시 Qwen 로컬 fallback).
+    새벽(00:00-05:59 KST) 에만 동작. Groq·Qwen 모두 시간 외 차단.
+    override: DAWN_ONLY_LLM=0
 
-    장중(평일 09:00-15:30 KST) 보호:
-      Groq 실패 시 Qwen 로컬 fallback 차단 — 트레이딩 시스템 ollama
-      자원 보호. 차단 시 LLMGatewayError 던지면 호출자가 auto 신호 fallback.
+    장중(평일 09:00-15:30 KST) 추가 보호:
+      Qwen 로컬 fallback 차단 — 트레이딩 시스템 ollama 자원 보호.
     """
+    # 새벽 시간 게이트 — Groq·Qwen 모두 차단 (사용자 명시 2026-05-12)
+    if not _is_dawn_hours_kst():
+        import datetime
+        kst = datetime.timezone(datetime.timedelta(hours=9))
+        now_h = datetime.datetime.now(kst).hour
+        raise LLMGatewayError(
+            f"vision_classify blocked: 새벽(00:00-06:00 KST) 외 LLM 차단 "
+            f"(현재 {now_h}시 KST). override: DAWN_ONLY_LLM=0"
+        )
+
     messages = [
         {"role": "system", "content": system},
         {
